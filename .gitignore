@@ -1,0 +1,16 @@
+# Maven build
+target/
+*.class
+*.jar
+*.war
+*.log
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+
+# Environment / Config

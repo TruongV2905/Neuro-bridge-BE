@@ -1,0 +1,53 @@
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      forwarded:
+        enabled: true
+
+      # Cấu hình CORS toàn cục
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"  # Cho môi trường Dev
+              - "https://your-production-app.com" # Cho môi trường Prod
+              - "https://www.google.com"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+springdoc:
+  swagger-ui:
+    enabled: true
+
+
+
+
+app:
+  api-prefix: /api/
+  shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
+  security:
+    public-endpoints:
+      - "/identity/auth/**"
+      - "/public/**"

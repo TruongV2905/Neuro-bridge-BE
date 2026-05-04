@@ -1,0 +1,16 @@
+server:
+  port: 8761
+
+
+spring:
+  application:
+    name: discovery
+eureka:
+  client:
+    register-with-eureka: false  # Server không tự đăng ký chính nó
+    fetch-registry: false        # Server không cần lấy danh sách service
+  server:
+    enable-self-preservation: false  # Cho phép xóa instance khi mất kết nối
+    eviction-interval-timer-in-ms: 60000  # Chu kỳ kiểm tra instance chết (1 phút)
+
+
