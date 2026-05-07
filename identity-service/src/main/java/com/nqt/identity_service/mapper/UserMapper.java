@@ -6,17 +6,13 @@ import com.nqt.identity_service.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", uses = UserMapper.class)
+@Mapper(componentModel = "spring")
 public interface UserMapper {
 
+    @Mapping(target = "password", ignore = true)
     User toEntity(RegisterRequest request);
 
-    @Mapping(
-            target = "roles",
-            expression = "java(user.getRoles() == null ? java.util.Collections.emptyList() : " +
-                    "user.getRoles().stream().map(r -> r.getName()).collect(java.util.stream.Collectors.toList()))"
-    )
-    @Mapping(target = "token", ignore = true)
+    @Mapping(target = "accessToken", ignore = true)
     @Mapping(target = "refreshToken", ignore = true)
     UserResponse toResponse(User user);
 

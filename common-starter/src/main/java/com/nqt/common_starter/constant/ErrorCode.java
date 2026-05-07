@@ -16,6 +16,7 @@ public enum ErrorCode {
             "Password must contain at least one uppercase letter, one lowercase letter, one number, and"
                     + " one special character",
             HttpStatus.BAD_REQUEST),
+    INVALID_PASSWORD("Invalid password", HttpStatus.UNAUTHORIZED),
     USER_NOT_EXISTED("User does not exist", HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED("Email already exists", HttpStatus.BAD_REQUEST),
     PHONE_EXISTED("Phone number already exists", HttpStatus.BAD_REQUEST),
@@ -47,6 +48,7 @@ public enum ErrorCode {
     TOO_MANY_OTP("You sent otp too much", HttpStatus.BAD_REQUEST),
     INVALID_DEPOSIT("Deposit is invalid", HttpStatus.BAD_REQUEST),
     INVALID_TERM("Month term is invalid", HttpStatus.BAD_REQUEST),
+    INVALID_ENUM("Value is not in allowed enum", HttpStatus.BAD_REQUEST),
     NOT_FOUND("Not found!", HttpStatus.NOT_FOUND);
 
 

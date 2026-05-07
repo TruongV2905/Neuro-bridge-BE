@@ -72,6 +72,18 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+
+		<!--	Redis	-->
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.lettuce</groupId>
+			<artifactId>lettuce-core</artifactId>
+			<version>6.7.1.RELEASE</version>
+		</dependency>
+
 		<dependency>
 			<groupId>com.nqt</groupId>
 			<artifactId>common-starter</artifactId>

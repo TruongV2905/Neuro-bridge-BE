@@ -28,7 +28,6 @@ eureka:
 springdoc:
   api-docs:
     path: /v3/api-docs
-  paths-to-exclude: /internal/**
 
 
 jwt:

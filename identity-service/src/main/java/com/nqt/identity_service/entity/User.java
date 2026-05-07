@@ -1,9 +1,13 @@
 package com.nqt.identity_service.entity;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.nqt.common_starter.constant.ErrorCode;
+import com.nqt.common_starter.validator.EnumValidator;
 import com.nqt.identity_service.constant.Gender;
+import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.constant.UserStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.UuidGenerator;
@@ -22,7 +26,7 @@ import java.util.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class User {
+public class User implements UserDetails {
     @Id
     @UuidGenerator
     UUID id;
@@ -40,12 +44,10 @@ public class User {
 
     LocalDate dateOfBirth;
 
-    @ManyToMany
-    @JoinTable(
-            name = "user_role",
-            joinColumns = @JoinColumn(name = "role_name"),
-            inverseJoinColumns = @JoinColumn(name = "user_id"))
-    Set<Role> roles;
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "FIELD_REQUIRED")
+    @EnumValidator(enumClass = Role.class, message = "INVALID_ENUM")
+    Role role;
 
     @Column(unique = true)
     String phone;
@@ -57,7 +59,34 @@ public class User {
 
     LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    Set<RefreshToken> refreshTokens;
 
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
+    }
+
+    @Override
+    public String getUsername() {
+        return this.email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return this.status != UserStatus.BANNED;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return this.status == UserStatus.ACTIVE;
+    }
 }

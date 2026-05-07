@@ -23,6 +23,10 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,65 +52,76 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
             throws ServletException, IOException {
 
         try {
             String userId = request.getHeader("X-User-Id");
-            String roles = request.getHeader("X-User-Roles");
-            String permissions = request.getHeader("X-User-Permissions");
+            String role = request.getHeader("X-User-Role");
+            String timestamp = request.getHeader("X-Timestamp");
+            String requestId = request.getHeader("X-Request-Id");
             String signature = request.getHeader("X-Signature");
-            log.info("UerId: {}", userId);
-            log.info("Roles: {}", roles);
-            log.info("Permissions: {}", permissions);
-            if (userId == null || signature == null) {
+
+            log.info("UserId: {}", userId);
+            log.info("Role: {}", role);
+
+            // ✅ Check đủ header
+            if (userId == null || role == null || signature == null
+                    || timestamp == null || requestId == null) {
 
                 log.warn("Missing headers for path: {}", request.getServletPath());
                 throw new SecurityException("Missing authentication headers");
             }
 
-            // Verify HMAC
+            // ✅ Chống replay attack (5 phút)
+            long ts = Long.parseLong(timestamp);
+            long now = Instant.now().getEpochSecond();
 
+            if (Math.abs(now - ts) > 300) {
+                throw new SecurityException("Request expired");
+            }
 
-
-
-
-            String dataToVerify = userId
-                    + (roles != null ? roles : "")
-                    + (permissions != null ? permissions : "");
+            // ==== VERIFY HMAC ====
+            String dataToVerify = String.join("|",
+                    userId,
+                    role,
+                    timestamp,
+                    requestId
+            );
 
             byte[] decodedKey = Base64.decodeBase64(SHARED_SECRET);
+
             String expectedSignature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, decodedKey)
                     .hmacHex(dataToVerify);
 
-            if (!expectedSignature.equals(signature)) {
+            // ✅ So sánh an toàn
+            if (!MessageDigest.isEqual(
+                    expectedSignature.getBytes(StandardCharsets.UTF_8),
+                    signature.getBytes(StandardCharsets.UTF_8))) {
+
                 log.error("Invalid signature for user: {}", userId);
                 throw new GlobalException(ErrorCode.UNAUTHENTICATED);
             }
 
-            // Set Authentication
-            List<SimpleGrantedAuthority> authorities = Arrays.stream(
-                            (permissions != null && !permissions.isEmpty() ? permissions.split(",") : new String[0])
-                    ).map(SimpleGrantedAuthority::new)
-                    .collect(Collectors.toList());
+            // ==== SET AUTHENTICATION ====
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-            if (roles != null && !roles.isEmpty()) {
-                Arrays.stream(roles.split(","))
-                        .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
-                        .map(SimpleGrantedAuthority::new)
-                        .forEach(authorities::add);
-            }
+            // ✅ role
+            String roleWithPrefix = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+            authorities.add(new SimpleGrantedAuthority(roleWithPrefix));
 
-            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+            var authentication =
+                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
             log.error("Authentication error: {}", e.getMessage());
-            // Clear context if error
             SecurityContextHolder.clearContext();
-            // Tùy chọn: Trả về 401 trực tiếp tại đây nếu muốn chặt chẽ
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Gateway Signature");
         }
     }

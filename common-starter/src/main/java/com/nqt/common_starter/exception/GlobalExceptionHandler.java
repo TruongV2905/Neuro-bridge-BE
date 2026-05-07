@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
+import com.nqt.common_starter.dto.response.ErrorDetail;
 import feign.FeignException;
 import jakarta.validation.ConstraintViolation;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +16,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @ControllerAdvice
 @Slf4j
@@ -24,35 +25,74 @@ public class GlobalExceptionHandler {
     private static final String MIN_ATTRIBUTE = "min";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @ExceptionHandler(value = MethodArgumentNotValidException.class)
-    ResponseEntity<APIResponse<Object>> handleValidation(MethodArgumentNotValidException exception) {
-        String enumKey = exception.getFieldError().getDefaultMessage();
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<APIResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
 
-        ErrorCode errorCode = ErrorCode.INVALID_KEY;
-        Map<String, Object> attributes = null;
-        try {
-            errorCode = ErrorCode.valueOf(enumKey);
+        Map<String, List<ErrorDetail>> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        fieldError -> fieldError.getField(),
+                        Collectors.mapping(fieldError -> {
 
-            var constraintViolation =
-                    exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
+                            String key = fieldError.getDefaultMessage();
+                            Map<String, Object> meta = new HashMap<>();
 
-            attributes = constraintViolation.getConstraintDescriptor().getAttributes();
+                            try {
+                                ErrorCode errorCode = ErrorCode.valueOf(key);
 
-            log.info(attributes.toString());
+                                // 🔹 Lấy min/max từ annotation
+                                try {
+                                    var violation = fieldError.unwrap(jakarta.validation.ConstraintViolation.class);
+                                    var attributes = violation.getConstraintDescriptor().getAttributes();
 
-        } catch (IllegalArgumentException e) {
+                                    if (attributes.containsKey("min")) meta.put("min", attributes.get("min"));
+                                    if (attributes.containsKey("max")) meta.put("max", attributes.get("max"));
 
-        }
+                                } catch (Exception ignored) {}
 
-        APIResponse apiResponse = new APIResponse();
 
-        apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(
-                Objects.nonNull(attributes)
-                        ? mapAttribute(errorCode.getMessage(), attributes)
-                        : errorCode.getMessage());
+                                if (fieldError.getCodes() != null &&
+                                        Arrays.asList(fieldError.getCodes()).contains("EnumValidator")) {
 
-        return ResponseEntity.badRequest().body(apiResponse);
+                                    Object[] args = fieldError.getArguments();
+
+                                    for (Object arg : args) {
+                                        if (arg instanceof Class<?> clazz && clazz.isEnum()) {
+
+                                            List<String> allowedValues = Arrays.stream(clazz.getEnumConstants())
+                                                    .map(e -> ((Enum<?>) e).name())
+                                                    .toList();
+
+                                            meta.put("allowedValues", allowedValues);
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                return ErrorDetail.builder()
+                                        .code(errorCode.name()) // ✅ thêm code
+                                        .message(errorCode.getMessage())
+                                        .meta(meta.isEmpty() ? null : meta)
+                                        .build();
+
+                            } catch (IllegalArgumentException e) {
+                                return ErrorDetail.builder()
+                                        .code("UNKNOWN") // fallback
+                                        .message(key)
+                                        .build();
+                            }
+
+                        }, Collectors.toList())
+                ));
+
+        APIResponse<Object> response = APIResponse.builder()
+                .code(400)
+                .message("Validation failed")
+                .errors(errors)
+                .build();
+
+        return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

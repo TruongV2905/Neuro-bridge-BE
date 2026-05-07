@@ -13,6 +13,5 @@ import java.util.List;
 public class IntrospectResponse {
     boolean valid;
     String userId;
-    List<String> roles;
-    List<String> permissions;
+    String role;
 }

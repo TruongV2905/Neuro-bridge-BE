@@ -27,8 +27,10 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @Slf4j
@@ -72,33 +74,45 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                     if (res != null && res.getResult() != null && res.getResult().isValid()) {
                         var result = res.getResult();
 
-                        // Lấy dữ liệu người dùng
-                        var userId = result.getUserId();
-                        var roles = String.join(",", Optional.ofNullable(result.getRoles()).orElse(List.of()));
-                        var permissions = String.join(",", Optional.ofNullable(result.getPermissions()).orElse(List.of()));
-                        String dataToSign = userId + roles + permissions;
+                        // ✅ Lấy dữ liệu user (chỉ 1 role)
+                        String userId = result.getUserId();
+                        String role = result.getRole();
 
-                        // Ký HMAC để xác thực header (chống giả mạo)
+                        // ✅ Thêm timestamp + requestId (chống replay + trace)
+                        String timestamp = String.valueOf(Instant.now().getEpochSecond());
+                        String requestId = UUID.randomUUID().toString();
+
+                        // ✅ canonical string (phải thống nhất với service)
+                        String dataToSign = String.join("|",
+                                userId,
+                                role,
+                                timestamp,
+                                requestId
+                        );
+
+                        // ✅ decode secret 1 lần (nên để static final ngoài class)
                         byte[] decodedKey = Base64.decodeBase64(SHARED_SECRET);
+
+                        // ✅ ký HMAC
                         String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, decodedKey)
-                                .hmacHex(userId + roles + permissions);
-                        // Tạo request mới kèm header xác thực
+                                .hmacHex(dataToSign);
+
+                        // ✅ inject header
                         ServerHttpRequest newRequest = exchange.getRequest().mutate()
                                 .header("X-User-Id", userId)
-                                .header("X-User-Roles", roles)
-                                .header("X-User-Permissions", permissions)
+                                .header("X-User-Role", role)
+                                .header("X-Timestamp", timestamp)
+                                .header("X-Request-Id", requestId)
                                 .header("X-Signature", signature)
                                 .build();
 
-                        // Tiếp tục chain với request mới
                         return chain.filter(exchange.mutate().request(newRequest).build());
+
                     } else {
                         log.warn("Invalid token for path: {}", path);
                         return unauthenticatedResponse(exchange.getResponse());
                     }
-
                 })
-                // Nếu gọi service xác thực bị lỗi (503, 404...), trả về 401 luôn
                 .onErrorResume(ex -> {
                     log.error("Introspection error: {}", ex.getMessage());
                     return unauthenticatedResponse(exchange.getResponse());

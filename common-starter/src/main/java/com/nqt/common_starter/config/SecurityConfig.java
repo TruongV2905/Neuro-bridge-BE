@@ -2,6 +2,7 @@ package com.nqt.common_starter.config;
 
 import com.nqt.common_starter.security.CustomAccessDeniedHandler;
 import com.nqt.common_starter.security.CustomAuthenticationEntryPoint;
+import com.nqt.common_starter.security.CustomAuthenticationFailureHandler;
 import com.nqt.common_starter.security.GatewaySignatureFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -24,7 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true,level = lombok.AccessLevel.PRIVATE)
 public class SecurityConfig {
-
+    CustomAuthenticationFailureHandler customAuthenticationFailureHandler;
     GatewaySignatureFilter gatewaySignatureFilter;
     CustomAccessDeniedHandler accessDeniedHandler;
     CustomAuthenticationEntryPoint authenticationEntryPoint;
@@ -45,7 +46,9 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
-                .formLogin(AbstractHttpConfigurer::disable)
+                .formLogin(form -> form
+                        .failureHandler(customAuthenticationFailureHandler)
+                )
                 .httpBasic(AbstractHttpConfigurer::disable);
 
         return http.build();
