@@ -8,6 +8,21 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      routes:
+        - id: identity-service
+          uri: lb://identity-service
+          predicates:
+            - Path=/identity/**
+          filters:
+            - StripPrefix=1
+
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notification/**
+          filters:
+            - StripPrefix=1
       discovery:
         locator:
           enabled: false
@@ -19,8 +34,8 @@ spring:
         cors-configurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:3000"  # Cho môi trường Dev
-              - "https://your-production-app.com" # Cho môi trường Prod
+              - "http://localhost:3000"
+              - "https://your-production-app.com"
               - "https://www.google.com"
             allowedMethods:
               - GET
@@ -35,7 +50,9 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
 
 springdoc:
   swagger-ui:
@@ -45,9 +62,9 @@ springdoc:
 
 
 app:
-  api-prefix: /api/
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
   security:
     public-endpoints:
       - "/identity/auth/**"
-      - "/public/**"
+      - "/notification/api/notifications/health"
+  api-prefix: ${API_PREFIX:/api/v1}
