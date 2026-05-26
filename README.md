@@ -18,8 +18,10 @@ Khi dự án phình to và bạn cần tạo thêm một Microservice mới (ví
         <module>notification-service</module>
         <module>api-gateway</module>
         <module>payment-service</module> </modules> (ví dụ tạo thêm payment service)
+```
 ### Bước 2: Cập nhật script entrypoint của Postgres để tự sinh thêm vỏ DB
 Mở file docker-compose.yml, tìm đến service postgres. Tại đoạn script bash, chèn thêm một dòng lệnh psql để tự động tạo vỏ database trống cho service mới ngay trước chữ wait:
+```xml
 entrypoint: [
       "bash", "-c",
       "exec docker-entrypoint.sh postgres & \
@@ -29,9 +31,10 @@ entrypoint: [
            psql -U postgres -c 'CREATE DATABASE payment;' || true; \  # 👈 CHÈN THÊM DÒNG NÀY ĐỂ ĐẺ DB TỰ ĐỘNG (ví dụ tạo thêm payment service)
            wait"
     ]
-
+```
 ### Bước 3: Khai báo khối container cho Service mới trong docker-compose.yml
 Kéo xuống dưới cùng của file compose, định nghĩa service mới bằng cách copy và chỉnh sửa lại tên folder (context) cũng như cổng (ports) tương ứng:
+```xml
 payment-service:
     build:
       context: ./payment-service  # Thư mục chứa source code của service mới (ví dụ tạo thêm payment service)
@@ -51,10 +54,10 @@ payment-service:
       APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
-
+```
 ### Bước 4: Cấu hình định tuyến Route trên API Gateway
 Mở file application.yml nội bộ của dự án api-gateway và bổ sung thêm thẻ route để Gateway biết đường dẫn request tới service mới:
-
+```xml
 YAML
 spring:
   cloud:
@@ -67,7 +70,7 @@ spring:
             - Path=/payment/**
           filters:
             - StripPrefix=1
-
+```
 ### Bước 5:
   - Chạy lệnh đóng gói lại toàn bộ: mvn clean package -DskipTests
   - Chạy lệnh hạ và nâng Docker (xóa volume cũ): docker-compose down -v rồi docker-compose up -d --build
@@ -92,6 +95,7 @@ Tạo một file mới đặt tên chính xác là .env nằm tại thư mục g
 Copy đoạn mã dưới đây và paste vào file .env vừa tạo:
 
 Đoạn mã
+```xml
 DB_PASSWORD=postgres
 SHARED_SECRET=justi_secret_key_2026
 MAIL_USERNAME=your-email@gmail.com
@@ -99,22 +103,26 @@ MAIL_PASSWORD=your-gmail-app-password
 FROM_EMAIL=noreply@yourapp.com
 FROM_NAME=Your Application
 (Lưu ý: Để lấy MAIL_PASSWORD, truy cập https://myaccount.google.com/apppasswords để tạo mật khẩu ứng dụng Gmail, tuyệt đối không dùng mật khẩu email cá nhân thông thường).
+```
 
 Bước 2: Đóng gói toàn bộ hệ thống bằng một lệnh duy nhất (Maven Multi-Module)
-Mở Terminal tại thư mục gốc BE và chạy duy nhất câu lệnh sau: mvn clean package -DskipTests
+Mở Terminal tại thư mục gốc BE và chạy duy nhất câu lệnh sau: 
+```xml
+mvn clean package -DskipTests
+```
 Hệ thống sẽ tự động phân tích độ phụ thuộc, biên dịch thư viện dùng chung common-starter trước, sau đó tự động quét và đóng gói file .jar cho toàn bộ 100 dịch vụ con cùng một lúc vào thư mục target của từng folder.
 
 Bước 3: Khởi chạy toàn bộ hệ thống bằng Docker Compose
 Sau khi Maven đã build xong file .jar cho tất cả các service, tại thư mục gốc dự án, chạy lệnh sau:
-
-PowerShell
+```xml
 docker-compose up -d --build
+```
 Mạng nội bộ Docker sẽ khởi chạy. Đoạn script entrypoint cấu hình sẵn bên trong file compose sẽ tự động kích hoạt vào Postgres để đẻ sẵn các vỏ database trống (identity, notification...) giúp toàn bộ microservices kết nối thông suốt mà bạn không cần tạo tay bằng phần mềm bên ngoài.
 
 Bước 4: Kiểm tra trạng thái hệ thống
 Sau khi gõ lệnh chạy Docker, hãy đợi khoảng 30 - 45 giây để toàn bộ hệ thống ổn định, sau đó truy cập các đường dẫn sau để kiểm tra:
 
-Bảng điều khiển Microservices (Eureka Dashboard): Truy cập địa chỉ http://localhost:8761. Đảm bảo nhìn thấy đầy đủ 3 dịch vụ API-GATEWAY, IDENTITY-SERVICE, NOTIFICATION-SERVICE hiển thị trạng thái UP (Xanh mượt).
+Bảng điều khiển Microservices (Eureka Dashboard): Truy cập địa chỉ http://localhost:8761. Đảm bảo nhìn thấy đầy đủ các service hiển thị trạng thái UP (Xanh mượt).
 
 Cổng API tập trung (API Gateway): Đầu mối nhận mọi request từ Frontend tại địa chỉ http://localhost:8080.
 
