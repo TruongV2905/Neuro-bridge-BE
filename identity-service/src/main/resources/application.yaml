@@ -6,53 +6,39 @@ spring:
   application:
     name: identity-service
   datasource:
-    url: jdbc:mysql://localhost:3306/identity
-    username: root
-    password: 12345678
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/identity
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
   threads:
     virtual:
       enabled: true
-  cloud:
-    openfeign:
-      client:
-        config:
-          default:
-            # Feign sẽ tự động dùng Thread của Virtual Threads
-            loggerLevel: BASIC
-  main:
-    allow-circular-references: true
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
       show-sql: true
+    generate-ddl: true
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
   instance:
-    prefer-ip-address: false
-    hostname: localhost
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  paths-to-exclude: /internal/**
-
+    prefer-ip-address: true
 
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
-  valid-duration: 3600 # in second
-  refreshable-duration: 36000 # in seconds
+  valid-duration: 3600
+  refreshable-duration: 36000
 
 app:
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
   security:
     public-endpoints:
       - "/auth/**"
-#      - "/test-call/**"
       - "/swagger-ui/**"
       - "/v3/api-docs/**"
       - "/public/**"
