@@ -79,7 +79,7 @@ spring:
 
 
 
-PHẦN 2: Hướng dẫn dành cho ĐỒNG ĐỘI (Khi CLONE code về)
+## 🛠️ PHẦN 2: Hướng dẫn dành cho ĐỒNG ĐỘI (Khi CLONE code về)
 Chào mừng bạn tham gia vào đội ngũ phát triển dự án! Để thiết lập môi trường và khởi chạy toàn bộ hệ thống Microservices trên máy cục bộ của bạn một cách nhanh nhất, hãy thực hiện theo đúng 4 bước sau:
 
 🛠️ Yêu cầu tiên quyết
