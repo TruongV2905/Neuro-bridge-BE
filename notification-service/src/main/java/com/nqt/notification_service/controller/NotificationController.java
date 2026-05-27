@@ -24,7 +24,7 @@ public class NotificationController {
         emailService.sendHtmlEmail(request);
         return ResponseEntity.ok("HTML email sent successfully");
     }
-
+//cuoc song thuc vat
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("Notification service is running");
