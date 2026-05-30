@@ -12,16 +12,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservice-network
-    entrypoint: [
-      "bash", "-c",
-      "exec docker-entrypoint.sh postgres & \
-           until pg_isready -U postgres; do sleep 1; done; \
-           psql -U postgres -c 'CREATE DATABASE identity;' || true; \
-           psql -U postgres -c 'CREATE DATABASE notification;' || true; \
-           wait"
-    ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s

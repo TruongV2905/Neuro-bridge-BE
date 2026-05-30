@@ -37,7 +37,7 @@ public class SecurityConfig {
         List<String> endpoints = securityProperties.getPublicEndpoints();
         http
                 .csrf(AbstractHttpConfigurer::disable)
-//                .addFilterBefore(gatewaySignatureFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(gatewaySignatureFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(endpoints.toArray(new String[0])).permitAll()
                         .anyRequest().authenticated()

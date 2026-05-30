@@ -20,15 +20,6 @@ spring:
           default:
             # Feign sẽ tự động dùng Thread của Virtual Threads
             loggerLevel: BASIC
-  #Redis
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: 12345678
-      database: 0
-
-
   main:
     allow-circular-references: true
   jpa:
@@ -37,16 +28,23 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-      show-sql: true
-    generate-ddl: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
 
+  #Redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:12345678}
+      database: ${REDIS_DATABASE:0}
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
   instance:
-    prefer-ip-address: false
-    hostname: localhost
+    prefer-ip-address: true
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -57,13 +55,6 @@ jwt:
   valid-duration: 3600 # in second
   refreshable-duration: 36000 # in seconds
   refresh-duration: 30 # in minutes
-    prefer-ip-address: true
-
-jwt:
-  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
-  valid-duration: 3600
-  refreshable-duration: 36000
-
 app:
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
   security:
