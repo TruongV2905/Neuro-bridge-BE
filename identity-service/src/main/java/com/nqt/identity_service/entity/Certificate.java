@@ -43,7 +43,7 @@ public class Certificate {
     @CreationTimestamp
     LocalDateTime createdAt;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expert_profile_id")
     ExpertProfile expertProfile;
 }
