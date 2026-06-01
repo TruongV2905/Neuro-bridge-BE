@@ -3,11 +3,16 @@ package com.nqt.identity_service.service;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
 import com.nqt.common_starter.exception.GlobalException;
+import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.dto.request.SkillRequest;
 import com.nqt.identity_service.dto.response.SkillResponse;
+import com.nqt.identity_service.entity.ExpertProfile;
 import com.nqt.identity_service.entity.Skill;
+import com.nqt.identity_service.entity.User;
 import com.nqt.identity_service.mapper.SkillMapper;
+import com.nqt.identity_service.repository.ExpertProfileRepository;
 import com.nqt.identity_service.repository.SkillRepository;
+import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.ISkill;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +27,7 @@ import java.util.List;
 public class SkillService implements ISkill {
     SkillRepository skillRepository;
     SkillMapper skillMapper;
+    UserRepository userRepository;
 
 
     @Override
@@ -35,6 +41,7 @@ public class SkillService implements ISkill {
     public List<SkillResponse> getAllSkills() {
         return skillRepository.findAll()
                 .stream()
+                .filter(skill -> !skill.isDeleted())
                 .map(skillMapper::toResponse)
                 .toList();
     }
@@ -63,5 +70,26 @@ public class SkillService implements ISkill {
 
         skill.setDeleted(true);
         skillRepository.save(skill);
+    }
+
+    @Override
+    public List<SkillResponse> getAllSkillsByExpertCode(String expertCode) {
+        User expert = userRepository.findByCode(expertCode)
+                .orElseThrow(() -> new GlobalException(
+                        ErrorCode.NOT_FOUND.getCode(),
+                        ErrorCode.NOT_FOUND.getMessage()
+                ));
+        if(expert.getRole() != Role.EXPERT) {
+            throw new GlobalException(
+                    ErrorCode.UNAUTHORIZED.getCode(),
+                    ErrorCode.UNAUTHORIZED.getMessage()
+            );
+        }
+
+        return expert.getExpertProfile().getSkills()
+                .stream()
+                .filter(skill -> !skill.isDeleted())
+                .map(skillMapper::toResponse)
+                .toList();
     }
 }

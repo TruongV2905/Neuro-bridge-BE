@@ -15,4 +15,6 @@ public interface ISkill {
     SkillResponse updateSkill(long id, SkillRequest request);
 
     void deleteSkill(long id);
+
+    List<SkillResponse> getAllSkillsByExpertCode(String expertCode);
 }

@@ -32,6 +32,7 @@ public class SkillController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<APIResponse<List<SkillResponse>>> getAllSkills() {
         return ResponseEntity.ok(
                 APIResponse.response(200,"Get skills successfully",skillService.getAllSkills())
@@ -45,6 +46,12 @@ public class SkillController {
         );
     }
 
+    @GetMapping("/expert/{code}")
+    public ResponseEntity<APIResponse<List<SkillResponse>>> getSkillsByExpertCode(@PathVariable String code) {
+        return ResponseEntity.ok(
+                APIResponse.response(200,"Get skill successfully",skillService.getAllSkillsByExpertCode(code)));
+
+    }
     @PutMapping("/{id}")
     public ResponseEntity<APIResponse<SkillResponse>> updateSkill(
             @PathVariable long id,

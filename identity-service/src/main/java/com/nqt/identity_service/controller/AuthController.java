@@ -9,6 +9,7 @@ import com.nqt.identity_service.dto.response.IntrospectResponse;
 import com.nqt.identity_service.dto.response.UserResponse;
 import com.nqt.identity_service.service.AuthenticationService;
 import com.nqt.identity_service.service.TokenService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -25,7 +26,7 @@ public class AuthController {
     TokenService tokenService;
 
     @PostMapping("/login")
-    public ResponseEntity<APIResponse<UserResponse>> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<APIResponse<UserResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(APIResponse.response(
                         HttpStatus.CREATED.value(),
@@ -38,7 +39,7 @@ public class AuthController {
 
 
     @PostMapping("/register/client")
-    public ResponseEntity<APIResponse<String>> register(@RequestBody ClientRegisterRequest registerRequest) {
+    public ResponseEntity<APIResponse<String>> register(@Valid @RequestBody ClientRegisterRequest registerRequest) {
         authenticationService.registerClient(registerRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(APIResponse.response(
@@ -50,7 +51,7 @@ public class AuthController {
 
 
     @PostMapping("/register/expert")
-    public ResponseEntity<APIResponse<String>> register(@RequestBody ExpertRegisterRequest registerRequest) {
+    public ResponseEntity<APIResponse<String>> register(@Valid @RequestBody ExpertRegisterRequest registerRequest) {
         authenticationService.registerExpert(registerRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(APIResponse.response(
@@ -65,7 +66,7 @@ public class AuthController {
 
 
     @PostMapping("/introspect")
-    public ResponseEntity<APIResponse<IntrospectResponse>> introspect(@RequestBody IntrospectRequest introspectRequest) {
+    public ResponseEntity<APIResponse<IntrospectResponse>> introspect(@Valid @RequestBody IntrospectRequest introspectRequest) {
         return ResponseEntity.ok(
                 APIResponse.response(
                         HttpStatus.OK.value(),

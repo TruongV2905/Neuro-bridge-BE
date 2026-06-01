@@ -38,4 +38,9 @@ public class ExpertProfile implements Serializable {
     )
     @Builder.Default
     Set<Skill> skills = new HashSet<>();
+
+
+    @OneToMany(mappedBy = "expertProfile")
+    @Builder.Default
+    Set<Certificate> certificates = new HashSet<>();
 }

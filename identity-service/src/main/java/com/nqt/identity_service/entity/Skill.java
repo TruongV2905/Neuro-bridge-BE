@@ -28,6 +28,7 @@ public class Skill {
     @Column(updatable = false)
     LocalDateTime createdAt = LocalDateTime.now();
 
+
     boolean isDeleted;
 
     @ManyToMany(mappedBy = "skills")

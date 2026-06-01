@@ -8,6 +8,7 @@ import com.nqt.identity_service.dto.request.user.ExpertRequest;
 import com.nqt.identity_service.dto.request.user.UserFilterRequest;
 import com.nqt.identity_service.dto.response.UserResponse;
 import com.nqt.identity_service.service.UserService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -35,7 +36,7 @@ public class UserController {
 
     @PostMapping("/filter")
     public ResponseEntity<APIResponse<PageResponse<UserResponse>>> getAllUsers(
-            @RequestBody UserFilterRequest request
+           @Valid @RequestBody UserFilterRequest request
     ) {
         return ResponseEntity.ok(
                 APIResponse.response(200, "Get users successfully",userService.getAllUsers(request))
@@ -51,7 +52,7 @@ public class UserController {
     }
     @PutMapping("/client")
     public ResponseEntity<APIResponse<UserResponse>> updateClient(
-            @RequestBody ClientRequest request
+           @Valid @RequestBody ClientRequest request
     ) {
         return ResponseEntity.ok(
                 APIResponse.response(200, "Update client successfully",userService.updateClient(request))
@@ -59,7 +60,7 @@ public class UserController {
     }
     @PutMapping("/expert")
     public ResponseEntity<APIResponse<UserResponse>> updateExpert(
-            @RequestBody ExpertRequest request
+           @Valid @RequestBody ExpertRequest request
     ) {
         return ResponseEntity.ok(
                 APIResponse.response(200, "Update expert successfully",userService.updateExpert(request))
