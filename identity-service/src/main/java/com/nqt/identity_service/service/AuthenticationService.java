@@ -63,6 +63,7 @@ public class AuthenticationService implements IAuthentication {
         user.setRole(Role.CLIENT);
         ClientProfile clientProfile = clientProfileMapper.toEntity(registerRequest);
         user.setClientProfile(clientProfile);
+        user.getClientProfile().setUser(user);
         // Lưu user
         userRepository.save(user);
 
@@ -126,7 +127,7 @@ public class AuthenticationService implements IAuthentication {
       } catch (DisabledException e) {
           throw new GlobalException(ErrorCode.ACCOUNT_INACTIVE.getMessage());
       } catch (BadCredentialsException e) {
-          throw new GlobalException("Invalid password");
+          throw new GlobalException("Invalid email or password");
       } catch (Exception e) {
           log.info("login: {}", e.getMessage());
           throw new GlobalException(e.getMessage());

@@ -16,9 +16,9 @@ public interface IUser {
     PageResponse<UserResponse> getAllUsers(UserFilterRequest request);
 
 
-    UserResponse updateClient(String code, ClientRequest request);
+    UserResponse updateClient(ClientRequest request);
 
-    UserResponse updateExpert(String code,ExpertRequest request);
+    UserResponse updateExpert(ExpertRequest request);
 
     void changeStatus(String code, UserStatus status);
 }

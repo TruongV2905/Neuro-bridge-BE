@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,14 +47,21 @@ public class UserService implements IUser {
 
     @Override
     public UserResponse getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findUserByEmail(email);
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
         return userMapper.toResponse(user);
     }
     private User getCurrentUserInfo() {
-        return (User) SecurityContextHolder.getContext()
+        String userId = SecurityContextHolder.getContext()
                 .getAuthentication()
-                .getPrincipal();
+                .getName();
+
+        return userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
     }
 
     @Override
@@ -79,41 +87,31 @@ public class UserService implements IUser {
 
     @Override
     @Transactional
-    public UserResponse updateClient(String code,ClientRequest request) {
-        User user = userRepository.findByCode(code)
-                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
+    public UserResponse updateClient(ClientRequest request) {
+
         User currentUser = getCurrentUserInfo();
-        if(!user.getCode().equals(currentUser.getCode()) ) {
-            throw new GlobalException(ErrorCode.UNAUTHORIZED.getCode(),ErrorCode.UNAUTHORIZED.getMessage());
-        }
-        if (user.getRole() != Role.CLIENT) {
+        if (currentUser.getRole() != Role.CLIENT) {
             throw new GlobalException(ErrorCode.INVALID_KEY.getCode(),ErrorCode.INVALID_KEY.getMessage() );
         }
-        userMapper.updateUserFromClientRequest(request, user);
-        return userMapper.toResponse(userRepository.save(user));
+        userMapper.updateUserFromClientRequest(request, currentUser);
+        return userMapper.toResponse(userRepository.save(currentUser));
     }
 
     @Override
-    public UserResponse updateExpert(String code,ExpertRequest request) {
+    public UserResponse updateExpert(ExpertRequest request) {
 
-        User user = userRepository.findByCode(code)
-                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
         User currentUser = getCurrentUserInfo();
-        if(!user.getCode().equals(currentUser.getCode()) ) {
-            throw new GlobalException(ErrorCode.UNAUTHORIZED.getCode(),ErrorCode.UNAUTHORIZED.getMessage());
-        }
-
-        if (user.getRole() != Role.EXPERT) {
+        if (currentUser.getRole() != Role.EXPERT) {
             throw new GlobalException(ErrorCode.INVALID_KEY.getCode(),ErrorCode.INVALID_KEY.getMessage() );
         }
-        userMapper.updateUserFromExpertRequest(request, user);
+        userMapper.updateUserFromExpertRequest(request, currentUser);
         if (request.getSkillIds() != null) {
             Set<Skill> skills = new HashSet<>(
                     skillRepo.findAllById(request.getSkillIds())
             );
-            user.getExpertProfile().setSkills(skills);
+            currentUser.getExpertProfile().setSkills(skills);
         }
-        return userMapper.toResponse(userRepository.save(user));
+        return userMapper.toResponse(userRepository.save(currentUser));
     }
 
     @Override

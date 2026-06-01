@@ -49,22 +49,20 @@ public class UserController {
                 APIResponse.response(200, "Get user successfully",userService.getUserByCode(code))
         );
     }
-    @PutMapping("/client/{code}")
+    @PutMapping("/client")
     public ResponseEntity<APIResponse<UserResponse>> updateClient(
-            @PathVariable String code,
             @RequestBody ClientRequest request
     ) {
         return ResponseEntity.ok(
-                APIResponse.response(200, "Update client successfully",userService.updateClient(code, request))
+                APIResponse.response(200, "Update client successfully",userService.updateClient(request))
         );
     }
-    @PutMapping("/expert/{code}")
+    @PutMapping("/expert")
     public ResponseEntity<APIResponse<UserResponse>> updateExpert(
-            @PathVariable String code,
             @RequestBody ExpertRequest request
     ) {
         return ResponseEntity.ok(
-                APIResponse.response(200, "Update expert successfully",userService.updateExpert(code, request))
+                APIResponse.response(200, "Update expert successfully",userService.updateExpert(request))
         );
     }
     @PatchMapping("/{code}/status")
