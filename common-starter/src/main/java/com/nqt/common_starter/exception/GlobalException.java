@@ -1,24 +1,24 @@
 package com.nqt.common_starter.exception;
 
-import com.nqt.common_starter.constant.ErrorCode;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldDefaults;
+
+@Getter
+@Setter
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class GlobalException extends RuntimeException{
-    public GlobalException(ErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
-    }
+    Integer code;
+    //tính đa hình
+    //overloading
     public GlobalException(String message) {
         super(message);
     }
 
-    private ErrorCode errorCode;
-
-    public ErrorCode getErrorCode() {
-        return errorCode;
+    public GlobalException(int code, String message) {
+        super(message);
+        this.code = code;
     }
-
-    public void setErrorCode(ErrorCode errorCode) {
-        this.errorCode = errorCode;
-    }
-
 }

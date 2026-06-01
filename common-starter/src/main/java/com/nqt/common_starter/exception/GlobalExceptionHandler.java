@@ -5,10 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
-import com.nqt.common_starter.dto.response.ErrorDetail;
 import feign.FeignException;
-import jakarta.validation.ConstraintViolation;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,82 +16,34 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    private static final String MIN_ATTRIBUTE = "min";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<APIResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
-
-        Map<String, List<ErrorDetail>> errors = ex.getBindingResult()
+    public ResponseEntity<APIResponse<Object>> handleValidation(MethodArgumentNotValidException exception){
+        List<String> errors = exception
+                .getBindingResult()
                 .getFieldErrors()
-                .stream()
-                .collect(Collectors.groupingBy(
-                        fieldError -> fieldError.getField(),
-                        Collectors.mapping(fieldError -> {
+                .stream() //array method
+                .map(error -> {
+                    String enumKey = error.getDefaultMessage(); //VD: FIELD_REQUIRED
+                    ErrorCode errorCode;
+                    try {
+                        errorCode = ErrorCode.valueOf(enumKey);  //lấy mã lỗi trùng với enumKey
+                    }catch (IllegalArgumentException e){
+                        errorCode = ErrorCode.FIELD_REQUIRED;
+                    }
+                    return error.getField() + " " + errorCode.getMessage(); //VD name -> tên field + " " + message của error code -> name cannot be blank
+                }).toList();
+        //trả về FE bắt buộc phải dùng ResponseEntity
+        //badRequest() là mã lỗi 400
+        //APIResponse khuông mẫu trả về phía FE
+        //errors là tất cả những mã lỗi đã được chuyển đổi
 
-                            String key = fieldError.getDefaultMessage();
-                            Map<String, Object> meta = new HashMap<>();
-
-                            try {
-                                ErrorCode errorCode = ErrorCode.valueOf(key);
-
-                                // 🔹 Lấy min/max từ annotation
-                                try {
-                                    var violation = fieldError.unwrap(jakarta.validation.ConstraintViolation.class);
-                                    var attributes = violation.getConstraintDescriptor().getAttributes();
-
-                                    if (attributes.containsKey("min")) meta.put("min", attributes.get("min"));
-                                    if (attributes.containsKey("max")) meta.put("max", attributes.get("max"));
-
-                                } catch (Exception ignored) {}
-
-
-                                if (fieldError.getCodes() != null &&
-                                        Arrays.asList(fieldError.getCodes()).contains("EnumValidator")) {
-
-                                    Object[] args = fieldError.getArguments();
-
-                                    for (Object arg : args) {
-                                        if (arg instanceof Class<?> clazz && clazz.isEnum()) {
-
-                                            List<String> allowedValues = Arrays.stream(clazz.getEnumConstants())
-                                                    .map(e -> ((Enum<?>) e).name())
-                                                    .toList();
-
-                                            meta.put("allowedValues", allowedValues);
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                return ErrorDetail.builder()
-                                        .code(errorCode.name()) // ✅ thêm code
-                                        .message(errorCode.getMessage())
-                                        .meta(meta.isEmpty() ? null : meta)
-                                        .build();
-
-                            } catch (IllegalArgumentException e) {
-                                return ErrorDetail.builder()
-                                        .code("UNKNOWN") // fallback
-                                        .message(key)
-                                        .build();
-                            }
-
-                        }, Collectors.toList())
-                ));
-
-        APIResponse<Object> response = APIResponse.builder()
-                .code(400)
-                .message("Validation failed")
-                .errors(errors)
-                .build();
-
-        return ResponseEntity.badRequest().body(response);
+        return ResponseEntity.badRequest().body(APIResponse.response(400,"validation error",errors));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -100,21 +51,16 @@ public class GlobalExceptionHandler {
             AccessDeniedException exception) {
         ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
         log.info(exception.getMessage());
-        APIResponse<Object> apiResponse = new APIResponse<>();
-        apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
 
-        return ResponseEntity.status(errorCode.getStatus()).body(apiResponse);
+        return ResponseEntity.status(errorCode.getStatus()).body(APIResponse.response(errorCode.getStatus().value(), errorCode.getMessage(), null));
     }
 
     @ExceptionHandler(GlobalException.class)
-    public ResponseEntity<APIResponse<Object>> globalException(GlobalException exception) {
-        ErrorCode errorCode = exception.getErrorCode();
-        log.info(exception.getMessage());
-        APIResponse<Object> apiResponse = new APIResponse<>();
-        apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(exception.getMessage());
-        return ResponseEntity.status(errorCode.getStatus()).body(apiResponse);
+    public ResponseEntity<APIResponse<Object>> handleGlobal(GlobalException exception){
+        int status = (exception.getCode() != null)
+                ? exception.getCode() //value của code
+                : HttpStatus.INTERNAL_SERVER_ERROR.value(); //500
+        return ResponseEntity.status(status).body(APIResponse.response(status,exception.getMessage(),null));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -144,11 +90,7 @@ public class GlobalExceptionHandler {
         apiResponse.setMessage(exception.getMessage());
         return ResponseEntity.status(ErrorCode.FIELDS_EMPTY.getStatus()).body(apiResponse);
     }
-    private String mapAttribute(String message, Map<String, Object> attributes) {
-        String minValue = String.valueOf(attributes.get(MIN_ATTRIBUTE));
 
-        return message.replace("{" + MIN_ATTRIBUTE + "}", minValue);
-    }
 
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<APIResponse<Object>> handleFeignException(FeignException ex) {

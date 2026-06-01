@@ -6,6 +6,7 @@ import com.nqt.common_starter.validator.EnumValidator;
 import com.nqt.identity_service.constant.Gender;
 import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.constant.UserStatus;
+import com.nqt.identity_service.util.IdGenerator;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -15,8 +16,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Entity
@@ -32,22 +35,29 @@ public class User implements UserDetails {
     @UuidGenerator
     UUID id;
 
+    @Column(unique = true, nullable = false, updatable = false)
+    String code;
+
     String fullName;
+
+
 
     @Enumerated(EnumType.STRING)
     Gender gender;
 
 
     @Enumerated(EnumType.STRING)
-    UserStatus status;
+    @Builder.Default
+    UserStatus status = UserStatus.ACTIVE;
 
     String address;
 
     LocalDate dateOfBirth;
 
+    @Column(columnDefinition = "TEXT")
+    String avatarUrl;
+
     @Enumerated(EnumType.STRING)
-    @NotNull(message = "FIELD_REQUIRED")
-    @EnumValidator(enumClass = Role.class, message = "INVALID_ENUM")
     Role role;
 
     @Column(unique = true)
@@ -58,9 +68,38 @@ public class User implements UserDetails {
 
     String password;
 
-    LocalDateTime createdAt;
+    @Builder.Default
+    @Column(updatable = false)
+    LocalDateTime createdAt = LocalDateTime.now();
 
 
+    //-------------------------------------------------------------------
+
+    @OneToOne(cascade = CascadeType.ALL,mappedBy = "user")
+    ClientProfile clientProfile;
+
+    @OneToOne(cascade = CascadeType.ALL,mappedBy = "user")
+    ExpertProfile expertProfile;
+
+
+    @PrePersist
+    void generateCode() {
+        if (code == null) {
+            String prefix = switch (role) {
+                case CLIENT -> "CLI";
+                case EXPERT -> "EXP";
+                case ADMIN -> "ADM";
+            };
+
+            code = prefix + "-" + IdGenerator.randomCode(10);
+        }
+    }
+
+
+
+
+
+    //-------------------------------------------------------------
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));

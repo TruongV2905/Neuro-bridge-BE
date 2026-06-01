@@ -67,23 +67,18 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
             log.info("UserId: {}", userId);
             log.info("Role: {}", role);
 
-            // ✅ Check đủ header
             if (userId == null || role == null || signature == null
                     || timestamp == null || requestId == null) {
-
-                log.warn("Missing headers for path: {}", request.getServletPath());
-                throw new SecurityException("Missing authentication headers");
+                throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
             }
 
-            // ✅ Chống replay attack (5 phút)
             long ts = Long.parseLong(timestamp);
             long now = Instant.now().getEpochSecond();
 
             if (Math.abs(now - ts) > 300) {
-                throw new SecurityException("Request expired");
+                throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
             }
 
-            // ==== VERIFY HMAC ====
             String dataToVerify = String.join("|",
                     userId,
                     role,
@@ -96,33 +91,31 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
             String expectedSignature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, decodedKey)
                     .hmacHex(dataToVerify);
 
-            // ✅ So sánh an toàn
             if (!MessageDigest.isEqual(
                     expectedSignature.getBytes(StandardCharsets.UTF_8),
                     signature.getBytes(StandardCharsets.UTF_8))) {
-
-                log.error("Invalid signature for user: {}", userId);
-                throw new GlobalException(ErrorCode.UNAUTHENTICATED);
+                throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
             }
 
-            // ==== SET AUTHENTICATION ====
-            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-
-            // ✅ role
             String roleWithPrefix = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-            authorities.add(new SimpleGrantedAuthority(roleWithPrefix));
+
+            List<SimpleGrantedAuthority> authorities = List.of(
+                    new SimpleGrantedAuthority(roleWithPrefix)
+            );
 
             var authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
-
         } catch (Exception e) {
-            log.error("Authentication error: {}", e.getMessage());
+            log.error("Gateway authentication error: {}", e.getMessage());
             SecurityContextHolder.clearContext();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Gateway Signature");
+            return;
         }
+
+        // để ngoài try-catch
+        filterChain.doFilter(request, response);
     }
 }

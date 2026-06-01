@@ -1,22 +1,22 @@
-package com.nqt.identity_service.dto.request;
+package com.nqt.identity_service.dto.request.register;
 
 import com.nqt.common_starter.validator.EnumValidator;
 import com.nqt.identity_service.constant.Gender;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class RegisterRequest {
+public class BaseRegisterRequest {
     @NotBlank(message = "FIELD_REQUIRED")
-    @Size(min = 2, max = 50, message = "INVALID_SIZE_FULL_NAME")
+    @Size(min = 2, max = 50, message = "INVALID_SIZE")
     String fullName;
 
     @NotNull(message = "FIELD_REQUIRED")
@@ -26,21 +26,24 @@ public class RegisterRequest {
     @NotBlank(message = "FIELD_REQUIRED")
     String address;
 
-    @Past(message = "INVALID_DATE")
+    @NotNull(message = "FIELD_REQUIRED")
     LocalDate dateOfBirth;
 
+    String avatarUrl;
+
     @NotBlank(message = "FIELD_REQUIRED")
-    @Pattern(regexp = "^(0[0-9]{9,10})$", message = "INVALID_PHONE_NUMBER")
+    @Pattern(regexp = "^(0[0-9]{9,10})$", message = "INVALID_FORMAT")
     String phone;
 
     @NotBlank(message = "FIELD_REQUIRED")
-    @Email(message = "INVALID_EMAIL")
+    @Email(message = "INVALID_FORMAT")
     String email;
 
     @NotBlank(message = "FIELD_REQUIRED")
-    @Size(min = 8, max = 50, message = "INVALID_SIZE_PASSWORD")
+    @Size(min = 8, max = 50, message = "INVALID_SIZE")
     @Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
-            message = "INVALID_PATTERN_PASSWORD")
+            message = "INVALID_FORMAT")
     String password;
+
 }

@@ -57,7 +57,7 @@ public class TokenService {
         var token = request.getToken();
 
         try {
-            SignedJWT signedJWT = verifyToken(token, false);
+            SignedJWT signedJWT = verifyToken(token);
             var claimsSet = signedJWT.getJWTClaimsSet();
 
             // ✅ safe null + trim
@@ -116,7 +116,7 @@ public class TokenService {
         }
     }
 
-    private SignedJWT verifyToken(String token, boolean isRefresh)
+    private SignedJWT verifyToken(String token)
             throws JOSEException, ParseException {
 
         byte[] keyBytes = Base64.getDecoder().decode(SIGNER_KEY);
@@ -129,7 +129,7 @@ public class TokenService {
         boolean verified = signedJWT.verify(verifier);
 
         if (!verified) {
-            throw new GlobalException(ErrorCode.UNAUTHENTICATED);
+            throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
         }
 
         var claims = signedJWT.getJWTClaimsSet();
@@ -140,23 +140,8 @@ public class TokenService {
         Date exp = claims.getExpirationTime();
 
         if (exp == null || exp.before(now)) {
-            throw new GlobalException(ErrorCode.UNAUTHENTICATED);
+            throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
         }
-
-        // 3. (optional) refresh token check thêm window
-        if (isRefresh) {
-            Date issueTime = claims.getIssueTime();
-
-            Date refreshExp = new Date(
-                    issueTime.toInstant()
-                            .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
-                            .toEpochMilli()
-            );
-            if (refreshExp.before(now)) {
-                throw new GlobalException(ErrorCode.UNAUTHENTICATED);
-            }
-        }
-
         return signedJWT;
     }
 

@@ -6,11 +6,16 @@ import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.constant.UserStatus;
 import com.nqt.identity_service.dto.request.LoginRequest;
-import com.nqt.identity_service.dto.request.RegisterRequest;
+import com.nqt.identity_service.dto.request.register.BaseRegisterRequest;
+import com.nqt.identity_service.dto.request.register.ClientRegisterRequest;
+import com.nqt.identity_service.dto.request.register.ExpertRegisterRequest;
 import com.nqt.identity_service.dto.response.UserResponse;
-import com.nqt.identity_service.entity.RefreshToken;
-import com.nqt.identity_service.entity.User;
+import com.nqt.identity_service.entity.*;
+import com.nqt.identity_service.mapper.ClientProfileMapper;
+import com.nqt.identity_service.mapper.ExpertProfileMapper;
 import com.nqt.identity_service.mapper.UserMapper;
+import com.nqt.identity_service.repository.ExpertProfileRepository;
+import com.nqt.identity_service.repository.SkillRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.IAuthentication;
 import lombok.AccessLevel;
@@ -22,6 +27,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -33,29 +42,57 @@ public class AuthenticationService implements IAuthentication {
     TokenService tokenService;
     AuthenticationManager authenticationManager;
     PasswordEncoder passwordEncoder;
-    @Override
-    public APIResponse<String> register(RegisterRequest request) {
-        //validation
-        if (userRepository.existsByPhone(request.getPhone())) {
-            throw new GlobalException(ErrorCode.PHONE_EXISTED);
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new GlobalException(ErrorCode.EMAIL_EXISTED);
-        }
+    ClientProfileMapper clientProfileMapper;
+    ExpertProfileMapper expertProfileMapper;
+    SkillRepository skillRepo;
 
-        // Map RegisterRequest => User
-        User entity = userMapper.toEntity(request);
-        // Mã hóa mật khẩu trước khi lưu
-        entity.setPassword(passwordEncoder.encode(request.getPassword()));
-        entity.setStatus(UserStatus.ACTIVE);
-        entity.setRole(Role.MEMBER);
-        // Lưu tài khoản vào DB
-        userRepository.save(entity);
-        return APIResponse.success(null,"register success");
+
+
+    @Override
+    @Transactional
+    public String registerClient(ClientRegisterRequest registerRequest) {
+
+        // validation
+        validationExists(registerRequest);
+
+        // Map ClientRegisterRequest -> User
+        User user = userMapper.toEntity(registerRequest);
+        // Mã hóa mật khẩu
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        // Set mặc định
+        user.setRole(Role.CLIENT);
+        ClientProfile clientProfile = clientProfileMapper.toEntity(registerRequest);
+        user.setClientProfile(clientProfile);
+        // Lưu user
+        userRepository.save(user);
+
+        return "register client success";
     }
 
     @Override
-    public APIResponse<UserResponse> login(LoginRequest loginRequest) {
+    @Transactional
+    public String registerExpert(ExpertRegisterRequest registerRequest) {
+
+        // validation
+        validationExists(registerRequest);
+        User user = userMapper.toEntity(registerRequest);
+
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        ExpertProfile expertProfile = expertProfileMapper.toEntity(registerRequest);
+        Set<Skill> skills = new HashSet<>(
+                skillRepo.findAllById(registerRequest.getSkillIds())
+        );
+        expertProfile.setSkills(skills);
+        expertProfile.setUser(user);
+        user.setExpertProfile(expertProfile);
+        user.setRole(Role.EXPERT);
+        userRepository.save(user);
+
+        return "register expert success";
+    }
+
+    @Override
+    public UserResponse login(LoginRequest loginRequest) {
       try {
           // 1. Authenticate bằng Spring Security
           Authentication authentication =
@@ -67,19 +104,11 @@ public class AuthenticationService implements IAuthentication {
                   );
 
           User user = (User) authentication.getPrincipal();
-          // 2. Check trạng thái account
-          if (UserStatus.BANNED.equals(user.getStatus())) {
-              throw new GlobalException(ErrorCode.ACCOUNT_BANNED);
-          }
-
-          if (UserStatus.INACTIVE.equals(user.getStatus())) {
-              throw new GlobalException(ErrorCode.ACCOUNT_INACTIVE);
-          }
 
           // 3. Generate Access Token (JWT)
           String accessToken = tokenService.generateToken(user);
 
-//          // 4. Generate Refresh Token (random UUID)
+          // 4. Generate Refresh Token (random UUID)
           RefreshToken refreshTokenObj = tokenService.createRefreshToken(user);
           String refreshToken = refreshTokenObj.getToken();
 
@@ -91,26 +120,29 @@ public class AuthenticationService implements IAuthentication {
 
 
 
-          return APIResponse.success(response, "Login successful");
+          return response;
       } catch (LockedException e) {
-          throw new GlobalException(ErrorCode.ACCOUNT_BANNED);
+          throw new GlobalException(ErrorCode.ACCOUNT_BANNED.getMessage());
       } catch (DisabledException e) {
-          throw new GlobalException(ErrorCode.ACCOUNT_INACTIVE);
+          throw new GlobalException(ErrorCode.ACCOUNT_INACTIVE.getMessage());
       } catch (BadCredentialsException e) {
-          throw new GlobalException(ErrorCode.INVALID_PASSWORD);
+          throw new GlobalException("Invalid password");
       } catch (Exception e) {
           log.info("login: {}", e.getMessage());
-          throw new GlobalException(ErrorCode.OTHER);
+          throw new GlobalException(e.getMessage());
       }
     }
 
 
-    @Override
-    public APIResponse<UserResponse> getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findUserByEmail(email);
-        UserResponse response = userMapper.toResponse(user);
-        return APIResponse.success(response);
+    private void validationExists(BaseRegisterRequest registerRequest) {
+
+        if (userRepository.existsByPhone(registerRequest.getPhone())) {
+            throw new GlobalException(ErrorCode.PHONE_EXISTED.getMessage());
+        }
+
+        if (userRepository.existsByEmail(registerRequest.getEmail())) {
+            throw new GlobalException(ErrorCode.EMAIL_EXISTED.getMessage());
+        }
     }
 
 }

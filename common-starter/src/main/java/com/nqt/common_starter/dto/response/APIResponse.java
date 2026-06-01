@@ -14,40 +14,21 @@ import java.util.Map;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class APIResponse<T> {
-    @Builder.Default
-    int code = 200;
+    int code;
     String message;
     T result;
-    Map<String, List<ErrorDetail>> errors;
 
-    public static <T> APIResponse<T> success(T result) {
-        return APIResponse.<T>builder()
-                .code(200)
-                .message("success")
-                .result(result)
-                .build();
-    }
-
-    public static <T> APIResponse<T> success(T result, String message) {
-        return APIResponse.<T>builder()
-                .code(200)
-                .message(message)
-                .result(result)
-                .build();
-    }
-
-    public static <T> APIResponse<T> error(int code, String message, Map<String, List<ErrorDetail>> errors) {
+    public static <T> APIResponse<T> response(int code, String message, T result) {
+        //đây là cách thường
+        APIResponse apiResponse = new APIResponse();
+        apiResponse.setCode(code);
+        apiResponse.setMessage(message);
+        apiResponse.setResult(result);
+        //Đây là khi sài @Builder
         return APIResponse.<T>builder()
                 .code(code)
                 .message(message)
-                .errors(errors)
-                .build();
-    }
-
-    public static <T> APIResponse<T> error(int code, String message) {
-        return APIResponse.<T>builder()
-                .code(code)
-                .message(message)
+                .result(result)
                 .build();
     }
 }
