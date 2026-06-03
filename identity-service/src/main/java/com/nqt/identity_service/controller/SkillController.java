@@ -18,7 +18,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequestMapping("/skill")
-@PreAuthorize("hasRole('ADMIN')")
 public class SkillController {
     SkillService skillService;
 
@@ -32,7 +31,6 @@ public class SkillController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<APIResponse<List<SkillResponse>>> getAllSkills() {
         return ResponseEntity.ok(
                 APIResponse.response(200,"Get skills successfully",skillService.getAllSkills())

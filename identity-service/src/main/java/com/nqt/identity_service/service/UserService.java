@@ -70,8 +70,13 @@ public class UserService implements IUser {
 
         Specification<User> spec = UserSpecification.filter(request);
 
+
         Page<UserResponse> page = userRepository.findAll(spec, pageable)
-                .map(userMapper::toResponse);
+                .map(user -> {
+                    UserResponse response = userMapper.toResponse(user);
+                    response.setId(user.getId());
+                    return response;
+                });
 
         return PageResponse.fromPage(page);
     }

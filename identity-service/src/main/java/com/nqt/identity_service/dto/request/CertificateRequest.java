@@ -32,5 +32,5 @@ public class CertificateRequest {
     String certificateImageUrl;
 
     @NotNull(message = "FIELD_REQUIRED")
-    UUID expertProfileId;
+    String expertCode;
 }

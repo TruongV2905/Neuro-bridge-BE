@@ -32,5 +32,5 @@ public class PortfolioRequest {
     String projectUrl;
 
     @NotNull(message = "FIELD_REQUIRED")
-    UUID expertProfileId;
+    String expertCode;
 }

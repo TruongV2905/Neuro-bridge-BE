@@ -13,12 +13,17 @@ import com.nqt.identity_service.repository.ExpertProfileRepository;
 import com.nqt.identity_service.repository.PortfolioRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.IPortfolio;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PortfolioService implements IPortfolio {
     PortfolioRepository portfolioRepository;
     PortfolioMapper portfolioMapper;
@@ -29,11 +34,11 @@ public class PortfolioService implements IPortfolio {
     public PortfolioResponse createPortfolio(PortfolioRequest request) {
         Portfolio portfolio = portfolioMapper.toEntity(request);
 
-        ExpertProfile expertProfile = expertProfileRepo.findById(request.getExpertProfileId())
+        ExpertProfile expertProfile = userRepository.findByCode(request.getExpertCode())
                 .orElseThrow(() -> new GlobalException(
                         ErrorCode.NOT_FOUND.getCode(),
                         ErrorCode.NOT_FOUND.getMessage()
-                ));
+                )).getExpertProfile();
 
         portfolio.setExpertProfile(expertProfile);
 

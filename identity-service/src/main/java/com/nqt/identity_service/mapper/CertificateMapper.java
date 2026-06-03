@@ -12,9 +12,6 @@ public interface CertificateMapper {
 
     @Mapping(target = "expertProfile", ignore = true)
     Certificate toEntity(CertificateRequest request);
-
     CertificateResponse toResponse(Certificate certificate);
-
     void toUpdate(@MappingTarget Certificate certificate, CertificateRequest request);
-
 }
