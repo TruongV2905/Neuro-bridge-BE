@@ -7,11 +7,10 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data-v2:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservice-network
@@ -52,6 +51,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-cache
+    command: redis-server --requirepass 12345678
     ports:
       - "6379:6379"
     networks:
@@ -79,6 +79,7 @@ services:
     depends_on:
       - postgres
       - discovery
+      - redis
     ports:
       - "4561:4561"
     environment:
@@ -87,19 +88,20 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       APP_SHARED-SECRET: ${SHARED_SECRET}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: 12345678
     networks:
       - microservice-network
 
-  # 3. Cập nhật Notification Service
-  notification-service:
+  workspace-service:
     build:
-      context: ./notification-service
+      context: ./workspace-service
       dockerfile: Dockerfile
-    container_name: notification-service
+    container_name: workspace-service
     env_file: .env
     depends_on:
       - postgres
-      - kafka
+      - redis
       - discovery
     ports:
       - "8083:8083"
@@ -107,7 +109,8 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PASSWORD: 12345678
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
@@ -135,5 +138,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data: # Đổi mysql-data -> postgres-data
+  postgres-data-v2:
     driver: local

@@ -13,7 +13,8 @@
         <module>common-starter</module>
         <module>discovery</module>
         <module>identity-service</module>
-        <module>notification-service</module>
         <module>api-gateway</module>
+        <module>workspace-service</module>
+        <module>jobpost-service</module>
     </modules>
 </project>

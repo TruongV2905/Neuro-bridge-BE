@@ -1,2 +1,2 @@
 CREATE DATABASE identity;
-CREATE DATABASE notification;
+CREATE DATABASE workspace;
