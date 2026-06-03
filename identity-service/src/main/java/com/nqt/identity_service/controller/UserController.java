@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -35,6 +36,7 @@ public class UserController {
     }
 
     @PostMapping("/filter")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<APIResponse<PageResponse<UserResponse>>> getAllUsers(
            @Valid @RequestBody UserFilterRequest request
     ) {

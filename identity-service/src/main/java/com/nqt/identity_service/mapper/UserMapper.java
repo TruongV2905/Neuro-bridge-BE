@@ -29,10 +29,12 @@ public interface UserMapper {
 
     @Mapping(target = "accessToken", ignore = true)
     @Mapping(target = "refreshToken", ignore = true)
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "companyName", source = "clientProfile.companyName")
     @Mapping(target = "industry", source = "clientProfile.industry")
     @Mapping(target = "companyDescription", source = "clientProfile.companyDescription")
     @Mapping(target = "skillIds", source = "expertProfile.skills")
+
     UserResponse toResponse(User user);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -43,6 +45,7 @@ public interface UserMapper {
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "expertProfile", ignore = true)
+
     void updateUserFromExpertRequest(ExpertRequest request, @MappingTarget User user);
 
 

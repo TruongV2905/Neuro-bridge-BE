@@ -28,10 +28,11 @@ public class CertificateService implements ICertificate {
     @Override
     public CertificateResponse createCertificate(CertificateRequest request) {
         Certificate certificate = certificateMapper.toEntity(request);
-        ExpertProfile expertProfile = expertProfileRepo.findById(request.getExpertProfileId()).orElseThrow(() -> new GlobalException(
-                ErrorCode.NOT_FOUND.getCode(),
-                ErrorCode.NOT_FOUND.getMessage()
-        ));
+        ExpertProfile expertProfile = userRepository.findByCode(request.getExpertCode())
+                .orElseThrow(() -> new GlobalException(
+                        ErrorCode.NOT_FOUND.getCode(),
+                        ErrorCode.NOT_FOUND.getMessage()
+                )).getExpertProfile();
         certificate.setExpertProfile(expertProfile);
         return certificateMapper.toResponse(certificateRepository.save(certificate));
     }
