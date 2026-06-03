@@ -105,7 +105,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                                 .header("X-Request-Id", requestId)
                                 .header("X-Signature", signature)
                                 .build();
-
+                        log.info("X-User-Id {}", userId);
+                        log.info("X-User-Role {}", role);
+                        log.info("X-Signature {}", signature);
                         return chain.filter(exchange.mutate().request(newRequest).build());
 
                     } else {

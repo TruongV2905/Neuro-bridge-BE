@@ -66,6 +66,7 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
 
             log.info("UserId: {}", userId);
             log.info("Role: {}", role);
+            log.info("Signature {}", signature);
 
             if (userId == null || role == null || signature == null
                     || timestamp == null || requestId == null) {
@@ -74,9 +75,10 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
 
             long ts = Long.parseLong(timestamp);
             long now = Instant.now().getEpochSecond();
+            log.info("Request timestamp: {}, Current timestamp: {}", ts, now);
 
             if (Math.abs(now - ts) > 300) {
-                throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
+                throw new GlobalException("Request timestamp is too old or too far in the future");
             }
 
             String dataToVerify = String.join("|",
@@ -94,7 +96,7 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
             if (!MessageDigest.isEqual(
                     expectedSignature.getBytes(StandardCharsets.UTF_8),
                     signature.getBytes(StandardCharsets.UTF_8))) {
-                throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
+                throw new GlobalException("Wrong signature");
             }
 
             String roleWithPrefix = role.startsWith("ROLE_") ? role : "ROLE_" + role;
@@ -117,5 +119,5 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
 
         // để ngoài try-catch
         filterChain.doFilter(request, response);
-    }
+    }   
 }

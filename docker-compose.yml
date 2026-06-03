@@ -79,10 +79,12 @@ services:
     depends_on:
       - postgres
       - discovery
+      - redis
     ports:
       - "4561:4561"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: redis
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
@@ -127,6 +129,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_SERVER: http://discovery:8761/eureka/
+      APP_SHARED_SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 
