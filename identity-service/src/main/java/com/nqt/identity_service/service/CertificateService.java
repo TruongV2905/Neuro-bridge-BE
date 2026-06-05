@@ -13,17 +13,19 @@ import com.nqt.identity_service.repository.CertificateRepository;
 import com.nqt.identity_service.repository.ExpertProfileRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.ICertificate;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class CertificateService implements ICertificate {
-    CertificateRepository certificateRepository;
-    CertificateMapper certificateMapper;
-    ExpertProfileRepository expertProfileRepo;
-    UserRepository userRepository;
+    private final CertificateRepository certificateRepository;
+    private final CertificateMapper certificateMapper;
+    private final ExpertProfileRepository expertProfileRepo;
+    private final UserRepository userRepository;
 
     @Override
     public CertificateResponse createCertificate(CertificateRequest request) {
