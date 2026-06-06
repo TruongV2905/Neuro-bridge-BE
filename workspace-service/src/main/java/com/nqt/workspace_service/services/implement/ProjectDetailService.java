@@ -32,7 +32,7 @@ public class ProjectDetailService implements IProjectDetailService {
     @PreAuthorize("hasRole('ADMIN') or @workspaceSecurityExpression.isMemberOf(#workspaceId)")
     public ProjectDetailRespond getProjectDetail(UUID workspaceId) {
         log.info("Fetching project details for workspaceId: {}", workspaceId);
-        return projectRepository.findByWorkspaceId(workspaceId)
+        return projectRepository.findProjectDetailByWorkspaceId(workspaceId)
                 .map(this::mapToRespond)
                 .orElseThrow(() -> new GlobalException("Project not found for this workspace"));
     }

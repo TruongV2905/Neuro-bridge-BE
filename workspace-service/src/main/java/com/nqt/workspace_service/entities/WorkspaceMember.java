@@ -18,8 +18,8 @@ public class WorkspaceMember {
     @Column(name = "member_id")
     private UUID memberId; // ID định danh của bản ghi trong bảng trung gian này
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId; // Lấy chính xác từ Identity Service quăng sang
+    @Column(name = "user_id", nullable = false, unique = true)
+    private UUID userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace_id", nullable = false)
