@@ -1,10 +1,8 @@
 package com.nqt.identity_service.service;
 
 import com.nqt.common_starter.constant.ErrorCode;
-import com.nqt.common_starter.dto.response.APIResponse;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.constant.Role;
-import com.nqt.identity_service.constant.UserStatus;
 import com.nqt.identity_service.dto.request.LoginRequest;
 import com.nqt.identity_service.dto.request.register.BaseRegisterRequest;
 import com.nqt.identity_service.dto.request.register.ClientRegisterRequest;
@@ -14,7 +12,6 @@ import com.nqt.identity_service.entity.*;
 import com.nqt.identity_service.mapper.ClientProfileMapper;
 import com.nqt.identity_service.mapper.ExpertProfileMapper;
 import com.nqt.identity_service.mapper.UserMapper;
-import com.nqt.identity_service.repository.ExpertProfileRepository;
 import com.nqt.identity_service.repository.SkillRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.IAuthentication;
@@ -24,7 +21,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,7 +46,7 @@ public class AuthenticationService implements IAuthentication {
 
     @Override
     @Transactional
-    public String registerClient(ClientRegisterRequest registerRequest) {
+    public void registerClient(ClientRegisterRequest registerRequest) {
 
         // validation
         validationExists(registerRequest);
@@ -66,13 +62,11 @@ public class AuthenticationService implements IAuthentication {
         user.getClientProfile().setUser(user);
         // Lưu user
         userRepository.save(user);
-
-        return "register client success";
     }
 
     @Override
     @Transactional
-    public String registerExpert(ExpertRegisterRequest registerRequest) {
+    public void registerExpert(ExpertRegisterRequest registerRequest) {
 
         // validation
         validationExists(registerRequest);
@@ -89,7 +83,6 @@ public class AuthenticationService implements IAuthentication {
         user.setRole(Role.EXPERT);
         userRepository.save(user);
 
-        return "register expert success";
     }
 
     @Override

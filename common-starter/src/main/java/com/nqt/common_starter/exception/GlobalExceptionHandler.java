@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
+import com.nqt.common_starter.validator.EnumValidator;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.lang.reflect.Field;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @ControllerAdvice
 @Slf4j
@@ -27,23 +30,47 @@ public class GlobalExceptionHandler {
         List<String> errors = exception
                 .getBindingResult()
                 .getFieldErrors()
-                .stream() //array method
+                .stream()
                 .map(error -> {
-                    String enumKey = error.getDefaultMessage(); //VD: FIELD_REQUIRED
+                    String enumKey = error.getDefaultMessage();
+
                     ErrorCode errorCode;
                     try {
-                        errorCode = ErrorCode.valueOf(enumKey);  //lấy mã lỗi trùng với enumKey
-                    }catch (IllegalArgumentException e){
+                        errorCode = ErrorCode.valueOf(enumKey);
+                    } catch (IllegalArgumentException e) {
                         errorCode = ErrorCode.FIELD_REQUIRED;
                     }
-                    return error.getField() + " " + errorCode.getMessage(); //VD name -> tên field + " " + message của error code -> name cannot be blank
-                }).toList();
-        //trả về FE bắt buộc phải dùng ResponseEntity
-        //badRequest() là mã lỗi 400
-        //APIResponse khuông mẫu trả về phía FE
-        //errors là tất cả những mã lỗi đã được chuyển đổi
 
-        return ResponseEntity.badRequest().body(APIResponse.response(400,"validation error",errors));
+                    String message = error.getField() + " " + errorCode.getMessage();
+
+                    if ("EnumValidator".equals(error.getCode())) {
+                        try {
+                            Field field = exception.getParameter()
+                                    .getParameterType()
+                                    .getDeclaredField(error.getField());
+
+                            EnumValidator enumValidator =
+                                    field.getAnnotation(EnumValidator.class);
+
+                            if (enumValidator != null) {
+                                String allowedValues = Arrays
+                                        .stream(enumValidator.enumClass().getEnumConstants())
+                                        .map(Enum::name)
+                                        .collect(Collectors.joining(", "));
+
+                                message += ". Allowed values: " + allowedValues;
+                            }
+                        } catch (NoSuchFieldException ignored) {
+                        }
+                    }
+
+                    return message;
+                })
+                .toList();
+
+        return ResponseEntity
+                .badRequest()
+                .body(APIResponse.response(400, "validation error", errors));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -95,7 +95,12 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
 
             if (!MessageDigest.isEqual(
                     expectedSignature.getBytes(StandardCharsets.UTF_8),
-                    signature.getBytes(StandardCharsets.UTF_8))) {
+                    signature.trim().getBytes(StandardCharsets.UTF_8)
+            )) {
+                log.error("Wrong signature");
+                log.error("dataToVerify: {}", dataToVerify);
+                log.error("expectedSignature: {}", expectedSignature);
+                log.error("receivedSignature: {}", signature);
                 throw new GlobalException("Wrong signature");
             }
 
