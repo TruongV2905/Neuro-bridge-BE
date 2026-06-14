@@ -2,7 +2,7 @@
 
 services:
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: postgres-db
     environment:
       POSTGRES_USER: postgres
@@ -88,7 +88,6 @@ services:
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
-      APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 
@@ -111,7 +110,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
-      APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 
@@ -129,7 +127,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_SERVER: http://discovery:8761/eureka/
-      APP_SHARED_SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 

@@ -11,5 +11,4 @@ public interface IAuthentication {
     void registerExpert(ExpertRegisterRequest registerRequest);
 
     UserResponse login(LoginRequest loginRequest);
-
 }

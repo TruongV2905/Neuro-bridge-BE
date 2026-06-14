@@ -1,17 +1,18 @@
-package com.nqt.identity_service.dto.request;
+package com.nqt.identity_service.dto.response.skill;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SkillRequest {
-    @NotBlank(message = "FIELD_REQUIRED")
+public class SkillResponse {
+    long id;
     String skillName;
-    @NotBlank(message = "FIELD_REQUIRED")
     String skillDescription;
+    LocalDateTime createdAt;
 }

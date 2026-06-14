@@ -13,20 +13,25 @@ import com.nqt.identity_service.repository.CertificateRepository;
 import com.nqt.identity_service.repository.ExpertProfileRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import com.nqt.identity_service.service.impl.ICertificate;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
-
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class CertificateService implements ICertificate {
     CertificateRepository certificateRepository;
     CertificateMapper certificateMapper;
-    ExpertProfileRepository expertProfileRepo;
     UserRepository userRepository;
 
     @Override
-    public CertificateResponse createCertificate(CertificateRequest request) {
+    public CertificateResponse  createCertificate(CertificateRequest request) {
         Certificate certificate = certificateMapper.toEntity(request);
         ExpertProfile expertProfile = userRepository.findByCode(request.getExpertCode())
                 .orElseThrow(() -> new GlobalException(

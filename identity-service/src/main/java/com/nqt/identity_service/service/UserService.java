@@ -66,6 +66,9 @@ public class UserService implements IUser {
 
     @Override
     public PageResponse<UserResponse> getAllUsers(UserFilterRequest request) {
+
+        //vaidlation
+        User current = getCurrentUserInfo();
         Pageable pageable = PageUtil.createPageable(request);
 
         Specification<User> spec = UserSpecification.filter(request);
@@ -74,7 +77,14 @@ public class UserService implements IUser {
         Page<UserResponse> page = userRepository.findAll(spec, pageable)
                 .map(user -> {
                     UserResponse response = userMapper.toResponse(user);
-                    response.setId(user.getId());
+
+                    if (current.getRole() == Role.ADMIN) {
+                        response.setId(user.getId());
+                        response.setEmail(user.getEmail());
+                        response.setPhone(user.getPhone());
+                        response.setAddress(user.getAddress());
+                        response.setDateOfBirth(user.getDateOfBirth());
+                    }
                     return response;
                 });
 
