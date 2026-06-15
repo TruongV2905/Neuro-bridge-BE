@@ -9,6 +9,7 @@ import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.common_starter.util.ExcelUtil;
 import com.nqt.common_starter.util.PageUtil;
 import com.nqt.identity_service.constant.Role;
+import com.nqt.identity_service.dto.request.skill.SkillForExpertRequest;
 import com.nqt.identity_service.dto.request.skill.SkillRequest;
 import com.nqt.identity_service.dto.request.skill.SkillSuggestionRequest;
 import com.nqt.identity_service.dto.response.skill.SkillResponse;
@@ -233,6 +234,32 @@ public class SkillService implements ISkill {
                     .preferredSkillIds(Set.of())
                     .build();
         }
+    }
+
+    @Override
+    public void updateSkillForExpert(String expertCode, SkillForExpertRequest request) {
+        User expert = userRepository.findByCode(expertCode)
+                .orElseThrow(() -> new GlobalException(
+                        ErrorCode.NOT_FOUND.getCode(),
+                        ErrorCode.NOT_FOUND.getMessage()
+                ));
+        if(expert.getRole() != Role.EXPERT) {
+            throw new GlobalException(
+                    ErrorCode.UNAUTHORIZED.getCode(),
+                    ErrorCode.UNAUTHORIZED.getMessage()
+            );
+        }
+
+        Set<Skill> skills = request.getSkillIds().stream()
+                .map(id -> skillRepository.findById(id)
+                        .orElseThrow(() -> new GlobalException(
+                                ErrorCode.NOT_FOUND.getCode(),
+                                "Skill with id %d not found".formatted(id)
+                        )))
+                .collect(Collectors.toSet());
+
+        expert.getExpertProfile().setSkills(skills);
+        userRepository.save(expert);
     }
 
     private String toSkillContext(Document document) {
