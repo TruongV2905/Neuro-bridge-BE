@@ -77,6 +77,12 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                         // ✅ Lấy dữ liệu user (chỉ 1 role)
                         String userId = result.getUserId();
                         String role = result.getRole();
+                        
+                        // 🛡️ Handle null role
+                        if (userId == null || role == null) {
+                            log.warn("⚠️ Missing required claims (userId or role) in token for path: {}", path);
+                            return unauthenticatedResponse(exchange.getResponse());
+                        }
 
                         // ✅ Thêm timestamp + requestId (chống replay + trace)
                         String timestamp = String.valueOf(Instant.now().getEpochSecond());
@@ -106,15 +112,16 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                                 .header("X-Signature", signature)
                                 .build();
 
+                        log.info("✅ Authentication successful for path: {}, userId: {}, role: {}", path, userId, role);
                         return chain.filter(exchange.mutate().request(newRequest).build());
 
                     } else {
-                        log.warn("Invalid token for path: {}", path);
+                        log.warn("⚠️ Invalid token response for path: {}, response: {}", path, res);
                         return unauthenticatedResponse(exchange.getResponse());
                     }
                 })
                 .onErrorResume(ex -> {
-                    log.error("Introspection error: {}", ex.getMessage());
+                    log.error("❌ Introspection error for path: {}: {}", path, ex.getMessage(), ex);
                     return unauthenticatedResponse(exchange.getResponse());
                 });
     }

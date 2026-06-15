@@ -6,6 +6,8 @@ import com.nqt.workspace_service.entities.Workspace;
 import com.nqt.workspace_service.enums.PackageStatus;
 import com.nqt.workspace_service.enums.ProjectState;
 import com.nqt.workspace_service.enums.WorkspaceStatus;
+import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.SubmissionPackageRepository;
 import com.nqt.workspace_service.repositories.WorkspaceRepository;
 import com.nqt.workspace_service.services.interfaces.IClientReviewService;
@@ -25,6 +27,7 @@ public class ClientReviewService implements IClientReviewService {
 
     private final SubmissionPackageRepository submissionPackageRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final UserClientService userClientService;
     // private final KafkaTemplate<String, Object> kafkaTemplate; // Un-comment nếu team dùng Kafka
 
     /**
@@ -37,11 +40,7 @@ public class ClientReviewService implements IClientReviewService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy gói sản phẩm này!"));
 
         Workspace workspace = submissionPackage.getWorkspace();
-
-        // PHÂN QUYỀN TẦNG SERVICE: Chỉ Client sở hữu Workspace này mới được duyệt
-        if (!workspace.getClient().getUserId().equals(clientId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Client sở hữu phòng làm việc này!");
-        }
+        validateClientAccess(workspace, clientId);
 
         // Cập nhật trạng thái Gói nộp
         submissionPackage.setStatus(PackageStatus.APPROVED);
@@ -124,9 +123,7 @@ public class ClientReviewService implements IClientReviewService {
 
         Workspace workspace = submissionPackage.getWorkspace();
 
-        if (!workspace.getClient().getUserId().equals(clientId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Client sở hữu phòng làm việc này!");
-        }
+        validateClientAccess(workspace, clientId);
 
         // Cập nhật trạng thái Gói nộp thành từ chối
         submissionPackage.setStatus(PackageStatus.REJECTED);
@@ -140,6 +137,36 @@ public class ClientReviewService implements IClientReviewService {
         SubmissionPackage savedPackage = submissionPackageRepository.save(submissionPackage);
 
         return convertToResponseDto(savedPackage);
+    }
+
+    /**
+     * Phương thức dùng chung để validate quyền truy cập bằng gRPC
+     */
+    private void validateClientAccess(Workspace workspace, UUID clientId) {
+        // 1. Luôn kiểm tra quyền sở hữu từ Database nội bộ (Căn cứ xác thực chính)
+        if (!workspace.getClient().getUserId().equals(clientId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Client sở hữu phòng làm việc này!");
+        }
+
+        // 2. Cơ chế Fallback: Kiểm tra thông tin bổ sung từ gRPC
+        try {
+            var clientInfo = userClientService.getUserInfo(clientId.toString());
+
+            if (clientInfo == null) {
+                // Nếu gọi gRPC thành công mà trả về null -> User thực sự không tồn tại/bị xóa
+                log.error("Client ID {} tồn tại trong DB Workspace nhưng không tìm thấy ở IdentityService!", clientId);
+                throw new IllegalStateException("Tài khoản người dùng không hợp lệ!");
+            }
+
+            log.info("Client {} (ID: {}) thực hiện review sản phẩm.", clientInfo.getUsername(), clientId);
+
+        } catch (IdentityServiceUnavailableException e) {
+            log.warn("⚠️ IdentityService không khả dụng (gRPC Error: {}). Fallback: Cho phép tiếp tục dựa trên xác thực DB nội bộ.", e.getMessage());
+
+        } catch (Exception e) {
+            log.error("Lỗi không mong muốn khi kiểm tra Client {} qua gRPC: {}", clientId, e.getMessage());
+            throw new RuntimeException("Không thể xác thực thông tin người dùng bổ sung!");
+        }
     }
 
     private SubmissionPackageResponse convertToResponseDto(SubmissionPackage sp) {

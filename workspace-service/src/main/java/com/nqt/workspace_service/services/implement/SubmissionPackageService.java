@@ -3,6 +3,8 @@ import com.nqt.workspace_service.dto.response.DeliverableFileRespond;
 import com.nqt.workspace_service.dto.response.PackageResRespond;
 import com.nqt.workspace_service.dto.response.PackageRespond;
 import com.nqt.workspace_service.entities.SubmissionPackage;
+import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.SubmissionPackageRepository;
 import com.nqt.workspace_service.repositories.WorkspaceMemberRepository;
 import com.nqt.workspace_service.services.interfaces.ISubmissionPackageService;
@@ -23,15 +25,14 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
     private final SubmissionPackageRepository packageRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final UserClientService userClientService;
 
     @Override
     @Transactional(readOnly = true)
     public List<PackageRespond> getPackagesByWorkspace(UUID workspaceId, UUID currentUserId) {
         log.info("User {} đang yêu cầu lấy danh sách gói nộp bài của Workspace {}", currentUserId, workspaceId);
 
-        // Bảo mật chéo: Chỉ thành viên trong Workspace mới được xem danh sách gói nộp bài
-        memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
+        validateWorkspaceAccess(workspaceId, currentUserId);
 
         return packageRepository.findByWorkspaceIdAndNotDeleted(workspaceId).stream()
                 .map(this::mapToPackageRespond)
@@ -48,10 +49,30 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
         // Bảo mật chéo: Kiểm tra quyền xem thông qua Workspace ID của gói nộp bài đó
         UUID workspaceId = submissionPackage.getWorkspace().getWorkspaceId();
-        memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không có quyền xem thông tin gói nộp bài này!"));
+        validateWorkspaceAccess(workspaceId, currentUserId);
 
         return mapToPackageResRespond(submissionPackage);
+    }
+
+    /**
+     * Phương thức validate dùng chung cho cả class
+     */
+    private void validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {
+        memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
+                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
+
+        try {
+            var userInfo = userClientService.getUserInfo(currentUserId.toString());
+            if (userInfo == null) {
+                throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
+            }
+            log.info("User {} ({}) đang thực hiện thao tác với Workspace {}", currentUserId, userInfo.getUsername(), workspaceId);
+        } catch (IdentityServiceUnavailableException e) {
+            log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép thao tác dựa trên xác thực DB nội bộ.");
+        } catch (Exception e) {
+            log.error("Lỗi xác thực gRPC cho user {}: {}", currentUserId, e.getMessage());
+            throw new RuntimeException("Lỗi hệ thống xác thực!");
+        }
     }
 
     private PackageRespond mapToPackageRespond(SubmissionPackage sp) {

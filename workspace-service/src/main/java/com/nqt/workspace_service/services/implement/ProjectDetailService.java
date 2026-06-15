@@ -4,6 +4,8 @@ import com.nqt.workspace_service.dto.request.*;
 import com.nqt.workspace_service.dto.response.ProjectDetailRespond;
 import com.nqt.workspace_service.entities.ProjectDetail;
 import com.nqt.workspace_service.enums.ProjectState;
+import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.ProjectDetailRepository;
 import com.nqt.workspace_service.services.interfaces.IProjectDetailService;
 import lombok.AccessLevel;
@@ -11,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import java.util.UUID;
 
 public class ProjectDetailService implements IProjectDetailService {
     ProjectDetailRepository projectRepository;
+    UserClientService userClientService;
 
     /**
      * 1. + getProjectDetail(workspaceId: UUID): ProjectDetailRespond
@@ -32,6 +36,7 @@ public class ProjectDetailService implements IProjectDetailService {
     @PreAuthorize("hasRole('ADMIN') or @workspaceSecurityExpression.isMemberOf(#workspaceId)")
     public ProjectDetailRespond getProjectDetail(UUID workspaceId) {
         log.info("Fetching project details for workspaceId: {}", workspaceId);
+        validateUserIdentity();
         return projectRepository.findProjectDetailByWorkspaceId(workspaceId)
                 .map(this::mapToRespond)
                 .orElseThrow(() -> new GlobalException("Project not found for this workspace"));
@@ -45,6 +50,7 @@ public class ProjectDetailService implements IProjectDetailService {
     @PreAuthorize("hasRole('ADMIN') or @workspaceSecurityExpression.isProjectOwner(#req.projectId)")
     public ProjectDetailRespond updateStatus(UpdateStateRequest req) {
         log.info("Updating status for projectId: {} to {}", req.getProjectId(), req.getStatus());
+        validateUserIdentity();
         ProjectDetail project = projectRepository.findById(req.getProjectId())
                 .orElseThrow(() -> new GlobalException("Project not found"));
 
@@ -93,6 +99,47 @@ public class ProjectDetailService implements IProjectDetailService {
         project.setDeadline(req.getDeadline());
 
         return mapToRespond(projectRepository.save(project));
+    }
+
+    private void validateUserIdentity() {
+        // Lấy userId từ SecurityContext thông qua Spring Security
+        String currentUserIdStr = getCurrentUserIdFromContext();
+        if (currentUserIdStr == null) {
+            throw new GlobalException("Người dùng không được xác thực!");
+        }
+
+        try {
+            UUID currentUserId = UUID.fromString(currentUserIdStr);
+            var userInfo = userClientService.getUserInfo(currentUserId.toString());
+            if (userInfo == null) {
+                throw new GlobalException("Người dùng không tồn tại trên hệ thống!");
+            }
+            log.info("User {} ({}) đang thực hiện thao tác trên Project.", currentUserId, userInfo.getUsername());
+        } catch (IdentityServiceUnavailableException e) {
+            log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép thao tác dựa trên bảo mật của SecurityContext.");
+        } catch (IllegalArgumentException e) {
+            log.error("UUID không hợp lệ: {}", currentUserIdStr);
+            throw new GlobalException("UUID người dùng không hợp lệ!");
+        } catch (Exception e) {
+            log.error("Lỗi xác thực gRPC: {}", e.getMessage());
+            throw new GlobalException("Lỗi xác thực hệ thống!");
+        }
+    }
+
+    /**
+     * Helper method: Lấy userId từ SecurityContext
+     */
+    private String getCurrentUserIdFromContext() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equalsIgnoreCase(authentication.getPrincipal().toString())) {
+            log.warn("Unauthenticated request attempted to access workspace resource");
+            return null;
+        }
+
+        // Trả về userId dạng chuỗi (Do bộ lọc GatewaySignatureFilter gán vào trường Principal)
+        return (String) authentication.getPrincipal();
     }
 
     private ProjectDetailRespond mapToRespond(ProjectDetail entity) {

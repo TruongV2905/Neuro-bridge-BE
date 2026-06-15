@@ -85,6 +85,7 @@ services:
       - redis
     ports:
       - "4561:4561"
+      - "9090:9090"
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker

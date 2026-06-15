@@ -3,6 +3,8 @@ import com.nqt.workspace_service.dto.request.SubmitPackageRequest;
 import com.nqt.workspace_service.dto.response.SubmissionPackageResponse;
 import com.nqt.workspace_service.entities.*;
 import com.nqt.workspace_service.enums.*;
+import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.*;
 import com.nqt.workspace_service.services.interfaces.IExpertSubmissionService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
 
     private final WorkspaceRepository workspaceRepository;
     private final SubmissionPackageRepository submissionPackageRepository;
+    private final UserClientService userClientService;
 
     @Override
     @Transactional
@@ -31,9 +34,7 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
         Workspace workspace = workspaceRepository.findById(request.getWorkspaceId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy không gian làm việc này!"));
 
-        if (!workspace.getExpert().getUserId().equals(expertId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Expert được chỉ định cho dự án này!");
-        }
+        validateExpertAccess(workspace, expertId);
 
         int nextVersion = submissionPackageRepository.findMaxVersionByWorkspaceId(request.getWorkspaceId())
                 .map(currentMax -> currentMax + 1)
@@ -71,6 +72,27 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
         SubmissionPackage savedPackage = submissionPackageRepository.save(submissionPackage);
 
         return convertToResponseDto(savedPackage);
+    }
+
+    private void validateExpertAccess(Workspace workspace, UUID expertId) {
+        // Kiểm tra sở hữu trong DB (Căn cứ xác thực chính)
+        if (!workspace.getExpert().getUserId().equals(expertId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Expert được chỉ định cho dự án này!");
+        }
+
+        // Kiểm tra danh tính qua gRPC (Cơ chế Fallback)
+        try {
+            var expertInfo = userClientService.getUserInfo(expertId.toString());
+            if (expertInfo == null) {
+                throw new IllegalStateException("Expert không tồn tại trên hệ thống!");
+            }
+            log.info("Expert {} (Name: {}) đang thực hiện nộp sản phẩm.", expertId, expertInfo.getUsername());
+        } catch (IdentityServiceUnavailableException e) {
+            log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép nộp bài dựa trên xác thực DB.");
+        } catch (Exception e) {
+            log.error("Lỗi xác thực gRPC cho expert {}: {}", expertId, e.getMessage());
+            throw new RuntimeException("Không thể xác thực người dùng hiện tại!");
+        }
     }
 
     private SubmissionPackageResponse convertToResponseDto(SubmissionPackage sp) {

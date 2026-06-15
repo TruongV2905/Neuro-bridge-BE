@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/workspaces")
+@RequestMapping("/v1/workspaces")
 @RequiredArgsConstructor
 public class WorkspaceController {
 
     private final IWorkspaceInitializationService workspaceService;
 
     @PostMapping("/initialize")
-    @PreAuthorize("hasAuthority('SCOPE_internal')")
+    @PreAuthorize("hasAuthority('SCOPE_internal') or hasRole('ADMIN')")
     @Operation(
             summary = "⚡ KHỞI TẠO PHÒNG LÀM VIỆC (INTERNAL ONLY)",
             description = "⚠️ **LƯU Ý:** Frontend **KHÔNG GỌI TRỰC TIẾP** API này khi User bấm nút 'Hire'. " +

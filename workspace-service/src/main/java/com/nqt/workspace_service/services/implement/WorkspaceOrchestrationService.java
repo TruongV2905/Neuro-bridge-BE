@@ -6,6 +6,7 @@ import com.nqt.workspace_service.entities.Workspace;
 import com.nqt.workspace_service.enums.PackageStatus;
 import com.nqt.workspace_service.enums.ProjectState;
 import com.nqt.workspace_service.enums.WorkspaceStatus;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.SubmissionPackageRepository;
 import com.nqt.workspace_service.repositories.WorkspaceRepository;
 import com.nqt.workspace_service.services.interfaces.IWorkspaceOrchestrationService;
@@ -26,7 +27,7 @@ public class WorkspaceOrchestrationService implements IWorkspaceOrchestrationSer
 
     private final SubmissionPackageRepository submissionPackageRepository;
     private final WorkspaceRepository workspaceRepository;
-
+    private final UserClientService userClientService;
     /**
      * Nghiệp vụ 1: Tự động nghiệm thu (Cron Job chạy ngầm)
      * Quét định kỳ mỗi tiếng một lần (hoặc tùy chỉnh bằng cron expression)
@@ -133,6 +134,7 @@ public class WorkspaceOrchestrationService implements IWorkspaceOrchestrationSer
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền can thiệp vào phòng làm việc này!");
         }
 
+        enrichDisputeLog(requesterId, workspace.getWorkspaceId(), request.getReason());
         // Chuyển trạng thái dự án sang DISPUTED (Đóng băng tạm thời để Admin vào can thiệp)
         workspace.getProjectDetail().setStatus(ProjectState.DISPUTED);
 
@@ -191,6 +193,21 @@ public class WorkspaceOrchestrationService implements IWorkspaceOrchestrationSer
         kafkaTemplate.send("chat-control-events", chatBlockEvent);
         log.info("🚫 Đã phát event CHẶN CHAT (BLOCKED) sang Kafka topic [chat-control-events] cho Workspace: {}", workspace.getWorkspaceId());
         */
+    }
+
+    /**
+     * Phương thức tranh chấp bằng gRPC
+     */
+    private void enrichDisputeLog(UUID requesterId, UUID workspaceId, String reason) {
+        try {
+            var userInfo = userClientService.getUserInfo(requesterId.toString());
+            String name = (userInfo != null) ? userInfo.getUsername() : "Unknown";
+            log.warn("🚨 TRANH CHẤP Workspace {} bởi {} (ID: {}). Lý do: {}",
+                    workspaceId, name, requesterId, reason);
+        } catch (Exception e) {
+            log.warn("🚨 TRANH CHẤP Workspace {} bởi ID: {}. Lý do: {} (GRPC unavailable).",
+                    workspaceId, requesterId, reason);
+        }
     }
 
     /**

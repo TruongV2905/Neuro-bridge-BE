@@ -7,6 +7,7 @@ import com.nqt.workspace_service.entities.WorkspaceMember;
 import com.nqt.workspace_service.enums.ProjectState;
 import com.nqt.workspace_service.enums.WorkspaceRole;
 import com.nqt.workspace_service.enums.WorkspaceStatus;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.WorkspaceMemberRepository;
 import com.nqt.workspace_service.repositories.WorkspaceRepository;
 import com.nqt.workspace_service.services.interfaces.IWorkspaceInitializationService;
@@ -25,6 +26,7 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final UserClientService userClientService;
 
     @Override
     @Transactional
@@ -36,19 +38,8 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
             throw new IllegalStateException("Workspace cho công việc này đã tồn tại!");
         }
 
-        WorkspaceMember client = memberRepository.findById(request.getClientId())
-                .orElseGet(() -> memberRepository.save(WorkspaceMember.builder()
-                        .userId(request.getClientId())
-                        .name("Client " + request.getClientId().toString().substring(0, 5))
-                        .role(WorkspaceRole.CLIENT)
-                        .build()));
-
-        WorkspaceMember expert = memberRepository.findById(request.getExpertId())
-                .orElseGet(() -> memberRepository.save(WorkspaceMember.builder()
-                        .userId(request.getExpertId())
-                        .name("Expert " + request.getExpertId().toString().substring(0, 5))
-                        .role(WorkspaceRole.EXPERT)
-                        .build()));
+        WorkspaceMember client = getOrCreateMember(request.getClientId(), WorkspaceRole.CLIENT);
+        WorkspaceMember expert = getOrCreateMember(request.getExpertId(), WorkspaceRole.EXPERT);
 
         // 3. Khởi tạo thực thể gốc Workspace
         Workspace workspace = Workspace.builder()
@@ -79,15 +70,29 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
         return convertToResponseDto(savedWorkspace);
     }
 
-    /**
-     * Nghiệp vụ: Lấy thông tin thô Entity phục vụ kiểm tra bảo mật ở Controller
-     */
-//    @Override
-//    @Transactional(readOnly = true)
-//    public Workspace getWorkspaceById(UUID workspaceId) {
-//        return workspaceRepository.findById(workspaceId)
-//                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng làm việc với ID: " + workspaceId));
-//    }
+    private WorkspaceMember getOrCreateMember(UUID userId, WorkspaceRole role) {
+        return memberRepository.findById(userId).orElseGet(() -> {
+            String name = "User " + userId.toString().substring(0, 5); // Giá trị fallback
+            String avatar = null;
+
+            try {
+                var userInfo = userClientService.getUserInfo(userId.toString());
+                if (userInfo != null) {
+                    name = userInfo.getUsername();
+                    avatar = userInfo.getAvatarUrl(); // Nếu bạn thêm trường avatar trong proto
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ Không thể lấy thông tin user {} từ IdentityService ({}). Dùng giá trị mặc định.", userId, e.getMessage());
+            }
+
+            return memberRepository.save(WorkspaceMember.builder()
+                    .userId(userId)
+                    .name(name)
+                    .role(role)
+                    .avatarUrl(avatar)
+                    .build());
+        });
+    }
 
     /**
      * Hàm phụ trợ: Chuyển đổi dữ liệu từ Entity sang cấu trúc phẳng DTO

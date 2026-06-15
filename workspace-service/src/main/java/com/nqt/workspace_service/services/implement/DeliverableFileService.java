@@ -6,6 +6,8 @@ import com.nqt.workspace_service.dto.response.DeliverableFileRespond;
 import com.nqt.workspace_service.entities.DeliverableFile;
 import com.nqt.workspace_service.entities.SubmissionPackage;
 import com.nqt.workspace_service.entities.WorkspaceMember;
+import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.DeliverableFileRepository;
 import com.nqt.workspace_service.repositories.WorkspaceMemberRepository;
 import com.nqt.workspace_service.services.interfaces.IDeliverableFileService;
@@ -29,6 +31,7 @@ public class DeliverableFileService implements IDeliverableFileService {
 
     private final DeliverableFileRepository fileRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final UserClientService userClientService;
 
     @PersistenceContext
     private final EntityManager entityManager;
@@ -43,9 +46,7 @@ public class DeliverableFileService implements IDeliverableFileService {
             throw new IllegalArgumentException("Không tìm thấy gói nộp bài này!");
         }
 
-        // Kiểm tra xem người dùng đăng nhập có phải thành viên (Expert/Client) của Workspace đó không
-        memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
+        validateWorkspaceAccess(workspaceId, currentUserId);
 
         return fileRepository.findByPackageIdAndNotDeleted(packageId).stream()
                 .map(this::mapToResponse)
@@ -61,10 +62,7 @@ public class DeliverableFileService implements IDeliverableFileService {
         if (workspaceId == null) {
             throw new IllegalArgumentException("Gói nộp bài không tồn tại!");
         }
-
-        // Kiểm tra quyền: Phải thuộc nhóm và chỉ cho phép Client/Student nộp file sản phẩm bàn giao (Expert nộp qua luồng submit riêng)
-        WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền thao tác trên Workspace này!"));
+        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
 
         if ("EXPERT".equalsIgnoreCase(member.getRole().name())) { // Sửa lại m.getRole() tùy theo Enum của bạn
             throw new AccessDeniedException("Chuyên gia không nộp bài bằng luồng này!");
@@ -98,8 +96,7 @@ public class DeliverableFileService implements IDeliverableFileService {
         }
 
         UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
-        WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền sửa đổi tài liệu của nhóm này!"));
+        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
 
         if ("EXPERT".equalsIgnoreCase(member.getRole().name())) {
             throw new AccessDeniedException("Chuyên gia không có quyền chỉnh sửa file bàn giao của sinh viên!");
@@ -124,8 +121,7 @@ public class DeliverableFileService implements IDeliverableFileService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy file yêu cầu!"));
 
         UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
-        WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền gỡ bỏ tài liệu của nhóm này!"));
+        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
 
         if ("EXPERT".equalsIgnoreCase(member.getRole().name())) {
             throw new AccessDeniedException("Chuyên gia không có quyền gỡ tập tin sản phẩm của sinh viên!");
@@ -134,6 +130,28 @@ public class DeliverableFileService implements IDeliverableFileService {
         file.setIsDelete(true);
         fileRepository.save(file);
         return true;
+    }
+
+    private WorkspaceMember validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {
+        // 1. Kiểm tra quyền thành viên trong DB (Quyền truy cập phòng)
+        WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
+                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
+
+        // 2. Kiểm tra danh tính qua gRPC (Cơ chế Fallback)
+        try {
+            var userInfo = userClientService.getUserInfo(currentUserId.toString());
+            if (userInfo == null) {
+                throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
+            }
+            log.info("User {} (Name: {}) đang thực hiện thao tác trên Workspace {}", currentUserId, userInfo.getUsername(), workspaceId);
+        } catch (IdentityServiceUnavailableException e) {
+            log.warn("⚠️ IdentityService không khả dụng. Cho phép thao tác dựa trên xác thực DB.");
+        } catch (Exception e) {
+            log.error("Lỗi xác thực gRPC cho user {}: {}", currentUserId, e.getMessage());
+            throw new RuntimeException("Lỗi hệ thống xác thực!");
+        }
+
+        return member;
     }
 
     private DeliverableFileRespond mapToResponse(DeliverableFile file) {

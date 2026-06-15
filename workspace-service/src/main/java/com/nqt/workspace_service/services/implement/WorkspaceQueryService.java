@@ -3,9 +3,11 @@ import com.nqt.workspace_service.dto.response.PagedResponse;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
 import com.nqt.workspace_service.dto.response.WorkspaceSummaryResponse;
 import com.nqt.workspace_service.entities.Workspace;
+import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.WorkspaceRepository;
 import com.nqt.workspace_service.services.interfaces.IWorkspaceQueryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,9 +21,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WorkspaceQueryService implements IWorkspaceQueryService {
 
     private final WorkspaceRepository workspaceRepository;
+    private final UserClientService userClientService;
 
     /**
      * Nghiệp vụ 1: Lấy chi tiết phòng làm việc (Bao gồm kiểm tra bảo mật nội bộ tầng Service)
@@ -37,7 +41,7 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
                 && !workspace.getExpert().getUserId().equals(currentUserId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem thông tin phòng làm việc này!");
         }
-
+        enrichWorkspaceMembers(workspace);
         return convertToResponseDto(workspace);
     }
 
@@ -47,39 +51,11 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<WorkspaceSummaryResponse> getWorkspacesByUser(UUID userId, int pageNo, int pageSize) {
-        // Sắp xếp các phòng làm việc mới khởi tạo lên đầu danh sách (Mới nhất xếp trước)
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by("createdAt").descending());
-
         Page<Workspace> workspacePage = workspaceRepository.findByUserId(userId, pageable);
 
-        // Chuyển đổi danh sách entities sang danh sách tóm tắt DTO phẳng
         List<WorkspaceSummaryResponse> summaryList = workspacePage.getContent().stream()
-                .map(w -> {
-                    // Xác định ai là đối tác (Partner) của User đang gọi API để trả về đúng giao diện hiển thị
-                    WorkspaceSummaryResponse.PartnerInfo partnerInfo;
-                    if (w.getClient().getUserId().equals(userId)) {
-                        partnerInfo = WorkspaceSummaryResponse.PartnerInfo.builder()
-                                .name(w.getExpert().getName())
-                                .avatarUrl(w.getExpert().getAvatarUrl())
-                                .role("EXPERT")
-                                .build();
-                    } else {
-                        partnerInfo = WorkspaceSummaryResponse.PartnerInfo.builder()
-                                .name(w.getClient().getName())
-                                .avatarUrl(w.getClient().getAvatarUrl())
-                                .role("CLIENT")
-                                .build();
-                    }
-
-                    return WorkspaceSummaryResponse.builder()
-                            .workspaceId(w.getWorkspaceId())
-                            .projectName(w.getProjectDetail().getProjectName())
-                            .projectStatus(w.getProjectDetail().getStatus().name())
-                            .progressPercentage(w.getProjectDetail().getProgressPercentage())
-                            .deadline(w.getProjectDetail().getDeadline())
-                            .partner(partnerInfo)
-                            .build();
-                })
+                .map(w -> mapToSummary(w, userId))
                 .collect(Collectors.toList());
 
         return PagedResponse.<WorkspaceSummaryResponse>builder()
@@ -90,6 +66,53 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
                 .totalPages(workspacePage.getTotalPages())
                 .last(workspacePage.isLast())
                 .build();
+    }
+
+    private WorkspaceSummaryResponse mapToSummary(Workspace w, UUID currentUserId) {
+        boolean isClient = w.getClient().getUserId().equals(currentUserId);
+        var partner = isClient ? w.getExpert() : w.getClient();
+
+        // Enrich Partner Info qua gRPC
+        try {
+            var partnerInfo = userClientService.getUserInfo(partner.getUserId().toString());
+            if (partnerInfo != null) {
+                partner.setName(partnerInfo.getUsername());
+                partner.setAvatarUrl(partnerInfo.getAvatarUrl());
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Không thể enrich info cho partner {}: {}", partner.getUserId(), e.getMessage());
+        }
+
+        return WorkspaceSummaryResponse.builder()
+                .workspaceId(w.getWorkspaceId())
+                .projectName(w.getProjectDetail().getProjectName())
+                .projectStatus(w.getProjectDetail().getStatus().name())
+                .progressPercentage(w.getProjectDetail().getProgressPercentage())
+                .deadline(w.getProjectDetail().getDeadline())
+                .partner(WorkspaceSummaryResponse.PartnerInfo.builder()
+                        .name(partner.getName())
+                        .avatarUrl(partner.getAvatarUrl())
+                        .role(isClient ? "EXPERT" : "CLIENT")
+                        .build())
+                .build();
+    }
+
+    private void enrichWorkspaceMembers(Workspace w) {
+        // Tương tự cho Client và Expert
+        try {
+            var clientInfo = userClientService.getUserInfo(w.getClient().getUserId().toString());
+            if (clientInfo != null) {
+                w.getClient().setName(clientInfo.getUsername());
+                w.getClient().setAvatarUrl(clientInfo.getAvatarUrl());
+            }
+            var expertInfo = userClientService.getUserInfo(w.getExpert().getUserId().toString());
+            if (expertInfo != null) {
+                w.getExpert().setName(expertInfo.getUsername());
+                w.getExpert().setAvatarUrl(expertInfo.getAvatarUrl());
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Enrich member thất bại: {}", e.getMessage());
+        }
     }
 
     private WorkspaceResponse convertToResponseDto(Workspace workspace) {

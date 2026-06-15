@@ -63,3 +63,10 @@ app:
       - "/swagger-ui/**"
       - "/v3/api-docs/**"
       - "/public/**"
+
+# gRPC client configuration for calling identity-service
+grpc:
+  client:
+    identity-service:
+      address: static://localhost:9090
+      negotiation-type: plaintext
