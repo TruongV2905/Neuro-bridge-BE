@@ -76,7 +76,7 @@ public class SkillService implements ISkill {
         return Skill.builder()
                 .skillName(skillName)
                 .skillDescription(skillDescription)
-                .isDeleted(false)
+                .deleted(false)
                 .build();
     }
 
@@ -121,7 +121,7 @@ public class SkillService implements ISkill {
 
     @Override
     public SkillResponse getSkillById(long id) {
-        Skill skill = skillRepository.findById(id)
+        Skill skill = skillRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new GlobalException(ErrorCode.NOT_FOUND.getCode(),ErrorCode.NOT_FOUND.getMessage()));
         return skillMapper.toResponse(skill);
     }

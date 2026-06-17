@@ -33,7 +33,8 @@ public class Skill {
     LocalDateTime createdAt;
 
 
-    boolean isDeleted;
+    @Column(name = "is_deleted")
+    boolean deleted;
 
     @ManyToMany(mappedBy = "skills")
     @Builder.Default

@@ -19,7 +19,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequestMapping("/portfolio")
-@PreAuthorize("hasRole('EXPERT') or hasRole('ADMIN')")
 public class PortfolioController {
     PortfolioService portfolioService;
 
@@ -57,6 +56,7 @@ public class PortfolioController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('EXPERT')")
     public ResponseEntity<APIResponse<PortfolioResponse>> updatePortfolio(
             @PathVariable UUID id,
             @Valid @RequestBody PortfolioRequest request
@@ -67,6 +67,7 @@ public class PortfolioController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('EXPERT')")
     public ResponseEntity<APIResponse<String>> deletePortfolio(@PathVariable UUID id) {
         portfolioService.deletePortfolio(id);
 

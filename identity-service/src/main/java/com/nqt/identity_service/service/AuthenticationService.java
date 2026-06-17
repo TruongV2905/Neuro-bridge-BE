@@ -75,7 +75,7 @@ public class AuthenticationService implements IAuthentication {
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         ExpertProfile expertProfile = expertProfileMapper.toEntity(registerRequest);
         Set<Skill> skills = new HashSet<>(
-                skillRepo.findAllById(registerRequest.getSkillIds())
+                skillRepo.findByIdInAndDeletedFalse(registerRequest.getSkillIds())
         );
         expertProfile.setSkills(skills);
         expertProfile.setUser(user);

@@ -5,6 +5,7 @@ import com.nqt.identity_service.dto.request.skill.SkillRequest;
 import com.nqt.identity_service.dto.response.skill.SkillResponse;
 import com.nqt.identity_service.entity.Skill;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")

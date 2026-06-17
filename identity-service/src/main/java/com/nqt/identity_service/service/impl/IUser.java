@@ -14,8 +14,6 @@ public interface IUser {
 
     PageResponse<UserResponse> getAllUsers(UserFilterRequest request);
 
-
-
     UserResponse updateClient(ClientRequest request);
 
     UserResponse updateExpert(ExpertRequest request);
