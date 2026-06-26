@@ -108,6 +108,10 @@ public class AuthenticationService implements IAuthentication {
 
           // 5. Response
           UserResponse response = userMapper.toResponse(user);
+          response.setEmail(user.getEmail());
+          response.setPhone(user.getPhone());
+          response.setAddress(user.getAddress());
+          response.setDateOfBirth(user.getDateOfBirth());
           response.setAccessToken(accessToken);
           response.setRefreshToken(refreshToken);
 

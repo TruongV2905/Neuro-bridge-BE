@@ -1,0 +1,80 @@
+server:
+  port: 4562
+  forward-headers-strategy: framework
+spring:
+  application:
+    name: jobPost-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/jobpost
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+  threads:
+    virtual:
+      enabled: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            # Feign sẽ tự động dùng Thread của Virtual Threads
+            loggerLevel: BASIC
+  ai:
+    openai:
+      api-key: ${GEMINI_KEY}
+      chat:
+        base-url: https://generativelanguage.googleapis.com
+        completions-path: /v1beta/openai/chat/completions
+        options:
+          model: gemini-2.0-flash
+      embedding:
+        base-url: https://generativelanguage.googleapis.com
+        embeddings-path: /v1beta/openai/embeddings
+        options:
+          model: gemini-embedding-001
+          dimensions: 1536
+
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+  main:
+    allow-circular-references: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+grpc:
+  server:
+    port: 9091
+    enable-keep-alive: true
+    security:
+      enabled: false
+
+  client:
+    identity-service:
+      address: static://localhost:9090
+      negotiationType: plaintext
+app:
+  shared-secret: ${SHARED_SECRET:g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w==}
+  security:
+    public-endpoints:
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/public/**"

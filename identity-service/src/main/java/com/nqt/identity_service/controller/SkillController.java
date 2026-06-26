@@ -54,7 +54,7 @@ public class SkillController {
     }
 
 
-    @GetMapping
+    @GetMapping("/user")
     public ResponseEntity<APIResponse<PageResponse<SkillResponse>>> getAllSkills(@ModelAttribute PageRequest pageRequest) {
         return ResponseEntity.ok(
                 APIResponse.response(200,"Get skills successfully",skillService.getAllSkills(pageRequest))

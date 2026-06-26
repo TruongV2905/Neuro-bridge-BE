@@ -109,6 +109,9 @@
 			<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
 		</dependency>
 
+
+
+
     </dependencies>
 	<dependencyManagement>
 
@@ -128,10 +131,21 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+
+
+
+
+
 		</dependencies>
+
+
+
+
+
 	</dependencyManagement>
 
 	<build>
+
 		<plugins>
 			<!-- Compiler plugin for MapStruct and Lombok -->
 			<plugin>
@@ -189,7 +203,6 @@
 					</formats>
 				</configuration>
 			</plugin>
-
 
 
 

@@ -47,6 +47,15 @@ eureka:
     service-url:
       defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
 
+# notification-service is pure REST + Kafka. Disable gRPC server (and any
+# client) so the auto-config brought in by common-starter does not start
+# a ShadedNettyGrpcServer on this service.
+grpc:
+  server:
+    enabled: false
+  client:
+    enabled: false
+
 app:
   security:
     public-endpoints:

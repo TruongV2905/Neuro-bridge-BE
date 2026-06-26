@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.identity.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.identity.grpc";
+
+message SkillSuggestionRequest {
+  string title = 1;
+  string description = 2;
+}
+
+message SkillSuggestionResponse {
+  repeated int64 required_skill_ids = 1;
+  repeated int64 preferred_skill_ids = 2;
+}
+
+service SkillSuggestionService {
+  rpc SuggestSkills(SkillSuggestionRequest) returns (SkillSuggestionResponse);
+}
+

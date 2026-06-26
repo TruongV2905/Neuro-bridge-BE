@@ -1,12 +1,11 @@
 package com.nqt.common_starter.exception;
 
-
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
 import com.nqt.common_starter.validator.EnumValidator;
-import feign.FeignException;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -119,51 +118,47 @@ public class GlobalExceptionHandler {
     }
 
 
-    @ExceptionHandler(FeignException.class)
-    public ResponseEntity<APIResponse<Object>> handleFeignException(FeignException ex) {
-        // 1. Lấy tên Service từ URL
-        String url = (ex.request() != null) ? ex.request().url() : "";
-        String serviceName = extractServiceName(url);
+    @ExceptionHandler(StatusRuntimeException.class)
+    public ResponseEntity<APIResponse<Object>> handleGrpcException(StatusRuntimeException ex) {
 
-        // 2. Lấy nội dung lỗi từ Service B
-        String content = ex.contentUTF8();
-        String downstreamMessage = extractMessage(content);
+        Status.Code grpcCode = ex.getStatus().getCode();
+        String grpcMessage = ex.getStatus().getDescription();
 
-        // 3. Lấy HTTP Status
-        int status = ex.status() > 0 ? ex.status() : 500;
+        int httpStatus = mapGrpcStatusToHttpStatus(grpcCode);
 
-        // 4. Build message chuyên nghiệp
-        String finalMessage = String.format("[%s]: %s", serviceName, downstreamMessage);
+        String finalMessage = "[GRPC-IDENTITY-SERVICE]: "
+                + (grpcMessage != null ? grpcMessage : "gRPC service error");
 
-        log.error("Feign Error | Status: {} | Service: {} | Content: {}", status, serviceName, content);
+        log.error(
+                "gRPC Error | gRPC Status: {} | HTTP Status: {} | Message: {}",
+                grpcCode,
+                httpStatus,
+                grpcMessage,
+                ex
+        );
 
         APIResponse<Object> body = APIResponse.builder()
-                .code(status)
+                .code(httpStatus)
                 .message(finalMessage)
                 .build();
 
-        return ResponseEntity.status(status).body(body);
+        return ResponseEntity.status(httpStatus).body(body);
     }
 
-    private String extractMessage(String json) {
-        try {
-            JsonNode node = objectMapper.readTree(json);
-            // Ưu tiên lấy field "message", nếu không có thì lấy "error", không có nữa thì trả về cả cục
-            if (node.has("message")) return node.get("message").asText();
-            if (node.has("error")) return node.get("error").asText();
-            return node.toString();
-        } catch (Exception e) {
-            return json.isEmpty() ? "No detail message" : json;
-        }
+    private int mapGrpcStatusToHttpStatus(Status.Code grpcCode) {
+        return switch (grpcCode) {
+            case OK -> 200;
+            case INVALID_ARGUMENT -> 400;
+            case UNAUTHENTICATED -> 401;
+            case PERMISSION_DENIED -> 403;
+            case NOT_FOUND -> 404;
+            case ALREADY_EXISTS -> 409;
+            case FAILED_PRECONDITION -> 400;
+            case UNAVAILABLE -> 503;
+            case DEADLINE_EXCEEDED -> 504;
+            default -> 500;
+        };
     }
 
-    private String extractServiceName(String url) {
-        if (url == null || url.isEmpty()) return "UNKNOWN";
-        try {
-            // Cắt chuỗi lấy host: http://demo-service/api -> DEMO-SERVICE
-            return url.split("/")[2].toUpperCase();
-        } catch (Exception e) {
-            return "EXTERNAL-SERVICE";
-        }
-    }
+
 }

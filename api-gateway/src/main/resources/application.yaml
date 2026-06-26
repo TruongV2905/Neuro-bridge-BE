@@ -54,4 +54,5 @@ app:
     public-endpoints:
       - "/identity/auth/**"
       - "/notification/api/notifications/health"
+      - "/identity/skill/user"
   api-prefix: ${API_PREFIX:/api/}

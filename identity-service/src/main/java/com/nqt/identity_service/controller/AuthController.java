@@ -60,11 +60,6 @@ public class AuthController {
                         null
                 ));
     }
-
-
-
-
-
     @PostMapping("/introspect")
     public ResponseEntity<APIResponse<IntrospectResponse>> introspect(@Valid @RequestBody IntrospectRequest introspectRequest) {
         return ResponseEntity.ok(
@@ -75,6 +70,4 @@ public class AuthController {
                 )
         );
     }
-
-
 }

@@ -70,7 +70,13 @@ eureka:
 springdoc:
   api-docs:
     path: /v3/api-docs
-
+# gRPC Server Configuration
+grpc:
+  server:
+    port: 9090
+    enable-keep-alive: true
+    security:
+      enabled: false
 
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
@@ -82,6 +88,7 @@ app:
   security:
     public-endpoints:
       - "/auth/**"
+      - "/skill/user"
       - "/swagger-ui/**"
       - "/v3/api-docs/**"
       - "/public/**"

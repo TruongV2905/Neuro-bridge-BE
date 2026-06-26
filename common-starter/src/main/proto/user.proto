@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package com.identity.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.identity.grpc";
+
+message UserRequest {
+  string user_id = 1;
+}
+
+message GetCurrentUserRequest {
+}
+
+message UserResponse {
+  string id = 1;
+  string code = 2;
+  string full_name = 3;
+  string gender = 4;
+  string status = 5;
+  string address = 6;
+  string avatar_url = 7;
+  string date_of_birth = 8;
+  string role = 9;
+  string phone = 10;
+  string email = 11;
+  string created_at = 12;
+
+  string company_name = 13;
+  string industry = 14;
+  string company_description = 15;
+
+  repeated int64 skill_ids = 16;
+}
+
+service UserService {
+  rpc GetUser(UserRequest) returns (UserResponse);
+
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (UserResponse);
+}

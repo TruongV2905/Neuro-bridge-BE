@@ -3,8 +3,10 @@ package com.nqt.common_starter.config;
 import com.nqt.common_starter.security.CustomAccessDeniedHandler;
 import com.nqt.common_starter.security.CustomAuthenticationEntryPoint;
 import com.nqt.common_starter.security.GatewaySignatureFilter;
+import com.nqt.common_starter.security.GatewaySignatureVerifier;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -22,16 +24,30 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
-@FieldDefaults(makeFinal = true,level = lombok.AccessLevel.PRIVATE)
+@FieldDefaults(makeFinal = true, level = lombok.AccessLevel.PRIVATE)
 public class SecurityConfig {
-    GatewaySignatureFilter gatewaySignatureFilter;
+
+    GatewaySignatureVerifier gatewaySignatureVerifier;
     CustomAccessDeniedHandler accessDeniedHandler;
     CustomAuthenticationEntryPoint authenticationEntryPoint;
     SecurityProperties securityProperties;
 
+    @Bean
+    public GatewaySignatureFilter gatewaySignatureFilter() {
+        return new GatewaySignatureFilter(securityProperties, gatewaySignatureVerifier);
+    }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public FilterRegistrationBean<GatewaySignatureFilter> gatewaySignatureFilterRegistration(
+            GatewaySignatureFilter filter
+    ) {
+        FilterRegistrationBean<GatewaySignatureFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, GatewaySignatureFilter gatewaySignatureFilter) throws Exception {
         List<String> endpoints = securityProperties.getPublicEndpoints();
         http
                 .csrf(AbstractHttpConfigurer::disable)
