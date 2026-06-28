@@ -10,6 +10,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -17,8 +19,18 @@ import org.springframework.stereotype.Service;
 public class CustomUserDetailsService  implements UserDetailsService {
     UserRepository userRepository;
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        log.info("loadUserByUsername");
-        return userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException(email));
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        log.info("loadUserByUsername: {}", username);
+
+        try {
+            UUID userId = UUID.fromString(username);
+
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> new UsernameNotFoundException(username));
+
+        } catch (IllegalArgumentException e) {
+            return userRepository.findByEmail(username)
+                    .orElseThrow(() -> new UsernameNotFoundException(username));
+        }
     }
 }

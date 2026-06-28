@@ -19,7 +19,6 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class JobPostResponse {
     UUID id;
-    Set<Long> categoryIds;
     String title;
     String description;
     Set<Long> requiredSkillIds;

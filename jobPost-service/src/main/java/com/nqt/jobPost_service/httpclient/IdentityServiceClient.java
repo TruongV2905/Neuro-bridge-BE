@@ -25,12 +25,15 @@ public class IdentityServiceClient {
     }
 
     public SkillSuggestionResponse suggestSkills(String title, String description) {
-        SkillSuggestionRequest request =
-                SkillSuggestionRequest.newBuilder()
-                        .setTitle(title == null ? "" : title)
-                        .setDescription(description == null ? "" : description)
-                        .build();
+        SkillSuggestionRequest request = SkillSuggestionRequest.newBuilder()
+                .setTitle(safeString(title))
+                .setDescription(safeString(description))
+                .build();
 
         return skillSuggestionBlockingStub.suggestSkills(request);
+    }
+
+    private String safeString(String value) {
+        return value == null ? "" : value;
     }
 }

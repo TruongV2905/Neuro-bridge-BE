@@ -9,14 +9,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.codec.digest.HmacAlgorithms;
-import org.apache.commons.codec.digest.HmacUtils;
-import org.apache.http.HttpHeaders;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -27,23 +24,18 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Component
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationFilter implements GlobalFilter, Ordered {
+
     IdentityService identityService;
     ObjectMapper objectMapper;
     AntPathMatcher antPathMatcher = new AntPathMatcher();
     SecurityProperties securityProperties;
-    @NonFinal
-    @Value("${app.shared-secret}")
-    String SHARED_SECRET;
 
     @NonFinal
     @Value("${app.api-prefix}")
@@ -54,66 +46,44 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getURI().getPath();
         log.info("AuthenticationFilter processing path: {}", path);
 
-        // 1. Kiểm tra nếu là đường dẫn Public
         if (isPublicPath(exchange.getRequest())) {
             return chain.filter(exchange);
         }
 
-        // 2. Lấy Token từ Header
-        List<String> authHeaders = exchange.getRequest().getHeaders().getOrEmpty(HttpHeaders.AUTHORIZATION);
+        List<String> authHeaders = exchange.getRequest()
+                .getHeaders()
+                .getOrEmpty(HttpHeaders.AUTHORIZATION);
+
         if (CollectionUtils.isEmpty(authHeaders)) {
             log.warn("Missing Authorization header for path: {}", path);
             return unauthenticatedResponse(exchange.getResponse());
         }
 
-        String token = authHeaders.getFirst().replace("Bearer ", "");
+        String authHeader = authHeaders.getFirst();
 
-        // 3. Gọi IdentityService để xác thực
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("Invalid Authorization header for path: {}", path);
+            return unauthenticatedResponse(exchange.getResponse());
+        }
+
+        String token = authHeader.substring(7);
+
         return identityService.introspectToken(token)
                 .flatMap(res -> {
                     if (res != null && res.getResult() != null && res.getResult().isValid()) {
-                        var result = res.getResult();
 
-                        // ✅ Lấy dữ liệu user (chỉ 1 role)
-                        String userId = result.getUserId();
-                        String role = result.getRole();
-
-                        // ✅ Thêm timestamp + requestId (chống replay + trace)
-                        String timestamp = String.valueOf(Instant.now().getEpochSecond());
-                        String requestId = UUID.randomUUID().toString();
-
-                        // ✅ canonical string (phải thống nhất với service)
-                        String dataToSign = String.join("|",
-                                userId,
-                                role,
-                                timestamp,
-                                requestId
-                        );
-
-                        // ✅ decode secret 1 lần (nên để static final ngoài class)
-                        byte[] decodedKey = Base64.decodeBase64(SHARED_SECRET);
-
-                        // ✅ ký HMAC
-                        String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, decodedKey)
-                                .hmacHex(dataToSign);
-
-                        // ✅ inject header
                         ServerHttpRequest newRequest = exchange.getRequest().mutate()
-                                .header("X-User-Id", userId)
-                                .header("X-User-Role", role)
-                                .header("X-Timestamp", timestamp)
-                                .header("X-Request-Id", requestId)
-                                .header("X-Signature", signature)
+                                .headers(headers -> {
+                                    headers.remove(HttpHeaders.AUTHORIZATION);
+                                    headers.setBearerAuth(token);
+                                })
                                 .build();
-                        log.info("X-User-Id {}", userId);
-                        log.info("X-User-Role {}", role);
-                        log.info("X-Signature {}", signature);
-                        return chain.filter(exchange.mutate().request(newRequest).build());
 
-                    } else {
-                        log.warn("Invalid token for path: {}", path);
-                        return unauthenticatedResponse(exchange.getResponse());
+                        return chain.filter(exchange.mutate().request(newRequest).build());
                     }
+
+                    log.warn("Invalid token for path: {}", path);
+                    return unauthenticatedResponse(exchange.getResponse());
                 })
                 .onErrorResume(ex -> {
                     log.error("Introspection error: {}", ex.getMessage());
@@ -126,29 +96,32 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         return 0;
     }
 
-    Mono<Void> unauthenticatedResponse(ServerHttpResponse response){
+    Mono<Void> unauthenticatedResponse(ServerHttpResponse response) {
         APIResponse<?> apiResponse = APIResponse.<Object>builder()
                 .code(401)
                 .message("Unauthenticated")
                 .build();
-        String body = null;
+
+        String body;
+
         try {
             body = objectMapper.writeValueAsString(apiResponse);
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("Error serializing unauthenticated response: {}", e.getMessage());
             throw new RuntimeException(e);
         }
+
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
         return response.writeWith(
-                Mono.just(response.bufferFactory().wrap(body.getBytes())));
+                Mono.just(response.bufferFactory().wrap(body.getBytes()))
+        );
     }
 
     private boolean isPublicPath(ServerHttpRequest request) {
         String path = request.getURI().getPath();
-        log.info("API prefix loaded: {}", apiPrefix);
-        log.info(securityProperties.getPublicEndpoints().toString());
-        // Kiểm tra trực tiếp các đường dẫn public defined sẵn
+
         return securityProperties.getPublicEndpoints().stream()
                 .anyMatch(pattern ->
                         antPathMatcher.match(apiPrefix + pattern, path)

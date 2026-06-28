@@ -16,7 +16,6 @@ import java.util.UUID;
 public class SubJobPostFilterRequest {
     UUID creatorId;
 
-    Set<Long> categoryIds;
 
     Set<Long> requiredSkillIds;
 

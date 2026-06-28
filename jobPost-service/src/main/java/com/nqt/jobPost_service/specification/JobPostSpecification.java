@@ -84,10 +84,6 @@ public class JobPostSpecification {
                         filter.getEstimatedDaysTo()
                 ));
             }
-            if (filter.getCategoryIds() != null && !filter.getCategoryIds().isEmpty()) {
-                Join<JobPost, Long> categoryJoin = root.join("categoryIds", JoinType.INNER);
-                predicates.add(categoryJoin.in(filter.getCategoryIds()));
-            }
             if (filter.getRequiredSkillIds() != null && !filter.getRequiredSkillIds().isEmpty()) {
                 Join<JobPost, Long> requiredSkillJoin = root.join("requiredSkillIds", JoinType.INNER);
                 predicates.add(requiredSkillJoin.in(filter.getRequiredSkillIds()));

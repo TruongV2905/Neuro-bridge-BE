@@ -23,6 +23,7 @@ import com.nqt.identity_service.service.impl.ISkill;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class SkillService implements ISkill {
     SkillRepository skillRepository;
     SkillMapper skillMapper;
@@ -172,23 +174,29 @@ public class SkillService implements ISkill {
         String description = request.getDescription();
 
         String query = """
-                Job title: %s
-                Job description: %s
-                """.formatted(title, description);
+            Job title: %s
+            Job description: %s
+            """.formatted(title, description);
 
-        var relatedSkillDocs = vectorStore.similaritySearch(
-                SearchRequest.builder()
-                        .query(query)
-                        .topK(10)
-                        .build()
-        );
+        try {
+            var relatedSkillDocs = vectorStore.similaritySearch(
+                    SearchRequest.builder()
+                            .query(query)
+                            .topK(10)
+                            .build()
+            );
 
-        String skillContext = relatedSkillDocs.stream()
-                .map(this::toSkillContext)
-                .collect(Collectors.joining(",\n"));
+            // Vector DB không có data hoặc không tìm thấy skill phù hợp
+            if (relatedSkillDocs == null || relatedSkillDocs.isEmpty()) {
+                return emptySkillSuggestion();
+            }
 
-        String response = chatClient.prompt()
-                .user("""
+            String skillContext = relatedSkillDocs.stream()
+                    .map(this::toSkillContext)
+                    .collect(Collectors.joining(",\n"));
+
+            String response = chatClient.prompt()
+                    .user("""
                         You are a job post skill suggestion assistant.
 
                         Your task:
@@ -222,20 +230,40 @@ public class SkillService implements ISkill {
                         Job description:
                         %s
                         """.formatted(skillContext, title, description))
-                .call()
-                .content();
+                    .call()
+                    .content();
 
-        try {
             String cleanJson = cleanJson(response);
             return objectMapper.readValue(cleanJson, SkillSuggestionResult.class);
+
+        } catch (org.springframework.ai.retry.TransientAiException e) {
+            // 503: model quá tải tạm thời
+            // Có thể retry sau, nhưng hiện tại trả rỗng để service không chết
+            log.warn("AI temporary error when suggesting skills: {}", e.getMessage());
+            return emptySkillSuggestion();
+
+        } catch (org.springframework.ai.retry.NonTransientAiException e) {
+            // 401: sai key/auth
+            // 404: sai model
+            // 429: hết quota
+            log.error("AI non-transient error when suggesting skills: {}", e.getMessage());
+            return emptySkillSuggestion();
+
         } catch (JsonProcessingException e) {
-            return SkillSuggestionResult.builder()
-                    .requiredSkillIds(Set.of())
-                    .preferredSkillIds(Set.of())
-                    .build();
+            log.warn("Cannot parse AI skill suggestion response", e);
+            return emptySkillSuggestion();
+
+        } catch (Exception e) {
+            log.error("Unexpected error when suggesting skills", e);
+            return emptySkillSuggestion();
         }
     }
-
+    private SkillSuggestionResult emptySkillSuggestion() {
+        return SkillSuggestionResult.builder()
+                .requiredSkillIds(Set.of())
+                .preferredSkillIds(Set.of())
+                .build();
+    }
     @Override
     public void updateSkillForExpert(String expertCode, SkillForExpertRequest request) {
         User expert = userRepository.findByCode(expertCode)

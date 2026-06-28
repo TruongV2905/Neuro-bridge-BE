@@ -1,5 +1,6 @@
 package com.nqt.common_starter.config;
 
+import com.nimbusds.jwt.SignedJWT;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -10,6 +11,9 @@ import io.grpc.MethodDescriptor;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.interceptor.GrpcGlobalClientInterceptor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -17,20 +21,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @GrpcGlobalClientInterceptor
 public class GrpcHeaderRelayInterceptor implements ClientInterceptor {
 
-    private static final Metadata.Key<String> X_USER_ID =
-            Metadata.Key.of("x-user-id", Metadata.ASCII_STRING_MARSHALLER);
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    private static final Metadata.Key<String> X_USER_ROLE =
-            Metadata.Key.of("x-user-role", Metadata.ASCII_STRING_MARSHALLER);
-
-    private static final Metadata.Key<String> X_TIMESTAMP =
-            Metadata.Key.of("x-timestamp", Metadata.ASCII_STRING_MARSHALLER);
-
-    private static final Metadata.Key<String> X_REQUEST_ID =
-            Metadata.Key.of("x-request-id", Metadata.ASCII_STRING_MARSHALLER);
-
-    private static final Metadata.Key<String> X_SIGNATURE =
-            Metadata.Key.of("x-signature", Metadata.ASCII_STRING_MARSHALLER);
+    public static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
+            Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
@@ -38,27 +32,25 @@ public class GrpcHeaderRelayInterceptor implements ClientInterceptor {
             CallOptions callOptions,
             Channel next
     ) {
-        ClientCall<ReqT, RespT> clientCall = next.newCall(method, callOptions);
-
-        return new ForwardingClientCall.SimpleForwardingClientCall<>(clientCall) {
+        log.info("GrpcHeaderRelayInterceptor INTERCEPT CALL: {}",
+                method.getFullMethodName());
+        return new ForwardingClientCall.SimpleForwardingClientCall<>(
+                next.newCall(method, callOptions)
+        ) {
             @Override
-            public void start(Listener<RespT> responseListener, Metadata metadata) {
+            public void start(
+                    Listener<RespT> responseListener,
+                    Metadata metadata
+            ) {
+                log.info("GrpcHeaderRelayInterceptor START: {}",
+                        method.getFullMethodName());
+                String authorization = resolveAuthorizationHeader();
 
-                ServletRequestAttributes attributes =
-                        (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-
-                if (attributes != null) {
-                    HttpServletRequest request = attributes.getRequest();
-
-                    putIfPresent(metadata, X_USER_ID, request, "X-User-Id");
-                    putIfPresent(metadata, X_USER_ROLE, request, "X-User-Role");
-                    putIfPresent(metadata, X_TIMESTAMP, request, "X-Timestamp");
-                    putIfPresent(metadata, X_REQUEST_ID, request, "X-Request-Id");
-                    putIfPresent(metadata, X_SIGNATURE, request, "X-Signature");
-
-                    log.debug("Relayed gateway signed headers to gRPC metadata.");
+                if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
+                    metadata.put(AUTHORIZATION_METADATA_KEY, authorization);
+                    log.info("Relayed Authorization header to gRPC metadata");
                 } else {
-                    log.warn("No RequestAttributes found. gRPC metadata will not contain gateway headers.");
+                    log.info("No Authorization available to relay to gRPC metadata");
                 }
 
                 super.start(responseListener, metadata);
@@ -66,17 +58,64 @@ public class GrpcHeaderRelayInterceptor implements ClientInterceptor {
         };
     }
 
-    private void putIfPresent(
-            Metadata metadata,
-            Metadata.Key<String> key,
-            HttpServletRequest request,
-            String headerName
-    ) {
-        String value = request.getHeader(headerName);
+    private String resolveAuthorizationHeader() {
+        String authorizationFromRequest = resolveFromServletRequest();
 
-        if (value != null && !value.isBlank()) {
-            metadata.put(key, value);
-            log.debug("Relaying gRPC metadata {}: {}", key.name(), value);
+        if (authorizationFromRequest != null) {
+            return authorizationFromRequest;
         }
+
+        return resolveFromSecurityContext();
+    }
+
+    private String resolveFromServletRequest() {
+        var attributes = RequestContextHolder.getRequestAttributes();
+
+        if (!(attributes instanceof ServletRequestAttributes servletAttributes)) {
+            return null;
+        }
+
+        HttpServletRequest request = servletAttributes.getRequest();
+
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authorization == null || authorization.isBlank()) {
+            return null;
+        }
+
+        return normalizeBearer(authorization);
+    }
+
+    private String resolveFromSecurityContext() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            return null;
+        }
+
+        Object credentials = authentication.getCredentials();
+
+        if (credentials instanceof String token) {
+            return normalizeBearer(token);
+        }
+
+        if (credentials instanceof SignedJWT signedJWT) {
+            return BEARER_PREFIX + signedJWT.serialize();
+        }
+
+        return null;
+    }
+
+    private String normalizeBearer(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        if (value.startsWith(BEARER_PREFIX)) {
+            return value;
+        }
+
+        return BEARER_PREFIX + value;
     }
 }

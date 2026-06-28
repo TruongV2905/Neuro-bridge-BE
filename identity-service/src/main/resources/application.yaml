@@ -33,16 +33,17 @@ spring:
     show-sql: true
   ai:
     openai:
-      api-key: ${GEMINI_KEY}
+      api-key: AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ
+
       chat:
-        base-url: https://generativelanguage.googleapis.com
-        completions-path: /v1beta/openai/chat/completions
+        base-url: https://generativelanguage.googleapis.com/v1beta/openai
+        completions-path: /chat/completions
         options:
-          model: gemini-2.0-flash
+          model: gemini-2.5-flash
 
       embedding:
-        base-url: https://generativelanguage.googleapis.com
-        embeddings-path: /v1beta/openai/embeddings
+        base-url: https://generativelanguage.googleapis.com/v1beta/openai
+        embeddings-path: /embeddings
         options:
           model: gemini-embedding-001
           dimensions: 1536
@@ -53,7 +54,7 @@ spring:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
         dimensions: 1536
-        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+        max-document-batch-size: 10000
   #Redis
   data:
     redis:
@@ -75,16 +76,12 @@ grpc:
   server:
     port: 9090
     enable-keep-alive: true
-    security:
-      enabled: false
-
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
   valid-duration: 3600 # in second
   refreshable-duration: 36000 # in seconds
   refresh-duration: 30 # in minutes
 app:
-  shared-secret: ${SHARED_SECRET:g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w==}
   security:
     public-endpoints:
       - "/auth/**"

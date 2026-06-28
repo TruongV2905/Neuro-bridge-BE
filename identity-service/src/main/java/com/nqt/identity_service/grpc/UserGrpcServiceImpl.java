@@ -5,23 +5,23 @@ import com.identity.grpc.UserResponse;
 import com.identity.grpc.UserServiceGrpc;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.service.UserService;
-
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.List;
 
 @GrpcService
 @Slf4j
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserGrpcServiceImpl extends UserServiceGrpc.UserServiceImplBase {
 
-    private final UserService userService;
-
-    public UserGrpcServiceImpl(UserService userService) {
-        this.userService = userService;
-    }
+    UserService userService;
 
     @Override
     public void getCurrentUser(
@@ -29,47 +29,10 @@ public class UserGrpcServiceImpl extends UserServiceGrpc.UserServiceImplBase {
             StreamObserver<UserResponse> responseObserver
     ) {
         try {
-            Authentication authentication = SecurityContextHolder
-                    .getContext()
-                    .getAuthentication();
-
-            if (authentication == null || authentication.getName() == null) {
-                responseObserver.onError(
-                        Status.UNAUTHENTICATED
-                                .withDescription("Unauthenticated user")
-                                .asRuntimeException()
-                );
-                return;
-            }
-
-            log.info("gRPC getCurrentUser called by userId={}", authentication.getName());
-
             com.nqt.identity_service.dto.response.UserResponse user =
                     userService.getCurrentUser();
 
-            UserResponse response =
-                    UserResponse.newBuilder()
-                            .setId(toStringValue(user.getId()))
-                            .setCode(toStringValue(user.getCode()))
-                            .setFullName(toStringValue(user.getFullName()))
-                            .setGender(toStringValue(user.getGender()))
-                            .setStatus(toStringValue(user.getStatus()))
-                            .setAddress(toStringValue(user.getAddress()))
-                            .setAvatarUrl(toStringValue(user.getAvatarUrl()))
-                            .setDateOfBirth(toStringValue(user.getDateOfBirth()))
-                            .setRole(toStringValue(user.getRole()))
-                            .setPhone(toStringValue(user.getPhone()))
-                            .setEmail(toStringValue(user.getEmail()))
-                            .setCreatedAt(toStringValue(user.getCreatedAt()))
-                            .setCompanyName(toStringValue(user.getCompanyName()))
-                            .setIndustry(toStringValue(user.getIndustry()))
-                            .setCompanyDescription(toStringValue(user.getCompanyDescription()))
-                            .addAllSkillIds(
-                                    user.getSkillIds() == null
-                                            ? java.util.List.of()
-                                            : user.getSkillIds()
-                            )
-                            .build();
+            UserResponse response = toGrpcUserResponse(user);
 
             responseObserver.onNext(response);
             responseObserver.onCompleted();
@@ -93,6 +56,33 @@ public class UserGrpcServiceImpl extends UserServiceGrpc.UserServiceImplBase {
                             .asRuntimeException()
             );
         }
+    }
+
+    private UserResponse toGrpcUserResponse(
+            com.nqt.identity_service.dto.response.UserResponse user
+    ) {
+        return UserResponse.newBuilder()
+                .setId(toStringValue(user.getId()))
+                .setCode(toStringValue(user.getCode()))
+                .setFullName(toStringValue(user.getFullName()))
+                .setGender(toStringValue(user.getGender()))
+                .setStatus(toStringValue(user.getStatus()))
+                .setAddress(toStringValue(user.getAddress()))
+                .setAvatarUrl(toStringValue(user.getAvatarUrl()))
+                .setDateOfBirth(toStringValue(user.getDateOfBirth()))
+                .setRole(toStringValue(user.getRole()))
+                .setPhone(toStringValue(user.getPhone()))
+                .setEmail(toStringValue(user.getEmail()))
+                .setCreatedAt(toStringValue(user.getCreatedAt()))
+                .setCompanyName(toStringValue(user.getCompanyName()))
+                .setIndustry(toStringValue(user.getIndustry()))
+                .setCompanyDescription(toStringValue(user.getCompanyDescription()))
+                .addAllSkillIds(
+                        user.getSkillIds() == null
+                                ? List.of()
+                                : user.getSkillIds()
+                )
+                .build();
     }
 
     private String toStringValue(Object value) {

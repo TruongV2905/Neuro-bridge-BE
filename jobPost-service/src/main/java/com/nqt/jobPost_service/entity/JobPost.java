@@ -27,11 +27,6 @@ public class JobPost {
 
     String creatorCode;
 
-    @ElementCollection
-    @CollectionTable(name = "job_post_categories")
-    @Column(name = "category_id")
-    @Builder.Default
-    Set<Long> categoryIds = new HashSet<>();
 
     String title;
 

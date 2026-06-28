@@ -16,8 +16,6 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class JobPostRequest {
 
-    Set<Long> categoryIds;
-
     @NotBlank(message = "FIELD_REQUIRED")
     String title;
 

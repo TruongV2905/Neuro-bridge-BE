@@ -20,12 +20,12 @@ spring:
             loggerLevel: BASIC
   ai:
     openai:
-      api-key: ${GEMINI_KEY}
+      api-key: AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ
       chat:
         base-url: https://generativelanguage.googleapis.com
         completions-path: /v1beta/openai/chat/completions
         options:
-          model: gemini-2.0-flash
+          model: gemini-2.5-flash
       embedding:
         base-url: https://generativelanguage.googleapis.com
         embeddings-path: /v1beta/openai/embeddings
@@ -62,17 +62,14 @@ springdoc:
     path: /v3/api-docs
 grpc:
   server:
-    port: 9091
-    enable-keep-alive: true
-    security:
-      enabled: false
-
+    port: -1
   client:
     identity-service:
-      address: static://localhost:9090
-      negotiationType: plaintext
+      address: discovery:///identity-service
+      negotiation-type: plaintext
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
 app:
-  shared-secret: ${SHARED_SECRET:g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w==}
   security:
     public-endpoints:
       - "/swagger-ui/**"
