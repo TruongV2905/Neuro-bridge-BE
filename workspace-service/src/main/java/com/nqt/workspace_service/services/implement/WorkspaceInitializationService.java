@@ -31,28 +31,20 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
     @Override
     @Transactional
     public WorkspaceResponse initializeWorkspace(CreateWorkspaceRequest request) {
-        log.info("Bắt đầu xử lý khởi tạo Workspace cho Job ID: {}", request.getJobId());
-
-        // 1. Kiểm tra phòng ngừa trùng lặp Workspace cho một công việc
         if (workspaceRepository.existsByJobId(request.getJobId())) {
             throw new IllegalStateException("Workspace cho công việc này đã tồn tại!");
         }
 
-        WorkspaceMember client = getOrCreateMember(request.getClientId(), WorkspaceRole.CLIENT);
-        WorkspaceMember expert = getOrCreateMember(request.getExpertId(), WorkspaceRole.EXPERT);
-
-        // 3. Khởi tạo thực thể gốc Workspace
         Workspace workspace = Workspace.builder()
                 .jobId(request.getJobId())
                 .escrowId(request.getEscrowId())
-                .client(client)
-                .expert(expert)
+                .clientId(request.getClientId())
+                .expertId(request.getExpertId())
                 .status(WorkspaceStatus.ACTIVE)
                 .build();
 
-        // 4. Khởi tạo cấu hình chi tiết dự án ban đầu (ProjectDetail - 1-1 Composition)
         ProjectDetail projectDetail = ProjectDetail.builder()
-                .workspace(workspace) // Gắn ngược tham chiếu về thực thể cha
+                .workspace(workspace)
                 .projectName(request.getProjectName())
                 .startDate(LocalDateTime.now())
                 .deadline(request.getDeadline())
@@ -61,35 +53,36 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
                 .build();
 
         workspace.setProjectDetail(projectDetail);
-
-        // 5. Lưu xuống DB qua thực thể gốc (Cascade tự động chèn ProjectDetail)
         Workspace savedWorkspace = workspaceRepository.save(workspace);
-        log.info("Khởi tạo thành công Workspace với ID: {}", savedWorkspace.getWorkspaceId());
 
-        // 6. Chuyển đổi sang Response DTO để trả về tầng Controller
-        return convertToResponseDto(savedWorkspace);
+        // Tạo member SAU khi có workspaceId
+        WorkspaceMember client = getOrCreateMember(
+                request.getClientId(), WorkspaceRole.CLIENT, savedWorkspace.getWorkspaceId());
+        WorkspaceMember expert = getOrCreateMember(
+                request.getExpertId(), WorkspaceRole.EXPERT, savedWorkspace.getWorkspaceId());
+
+        return convertToResponseDto(savedWorkspace, client, expert);
     }
 
-    private WorkspaceMember getOrCreateMember(UUID userId, WorkspaceRole role) {
-        return memberRepository.findById(userId).orElseGet(() -> {
-            String name = "User " + userId.toString().substring(0, 5); // Giá trị fallback
+    private WorkspaceMember getOrCreateMember(UUID userId, WorkspaceRole role, UUID workspaceId) {
+        return memberRepository.findByUserId(userId).orElseGet(() -> {
+            String name = "User " + userId.toString().substring(0, 5);
             String avatar = null;
-
             try {
                 var userInfo = userClientService.getUserInfo(userId.toString());
                 if (userInfo != null) {
                     name = userInfo.getUsername();
-                    avatar = userInfo.getAvatarUrl(); // Nếu bạn thêm trường avatar trong proto
+                    avatar = userInfo.getAvatarUrl();
                 }
             } catch (Exception e) {
-                log.warn("⚠️ Không thể lấy thông tin user {} từ IdentityService ({}). Dùng giá trị mặc định.", userId, e.getMessage());
+                log.warn("⚠️ Không thể lấy thông tin user {} từ IdentityService. Dùng giá trị mặc định.", userId);
             }
-
             return memberRepository.save(WorkspaceMember.builder()
                     .userId(userId)
                     .name(name)
                     .role(role)
                     .avatarUrl(avatar)
+                    .workspaceId(workspaceId) // gán workspaceId ở đây
                     .build());
         });
     }
@@ -98,9 +91,9 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
      * Hàm phụ trợ: Chuyển đổi dữ liệu từ Entity sang cấu trúc phẳng DTO
      */
     @Override
-    public WorkspaceResponse convertToResponseDto(Workspace workspace) {
-        if (workspace == null) return null;
-
+    public WorkspaceResponse convertToResponseDto(Workspace workspace,
+                                                  WorkspaceMember client,
+                                                  WorkspaceMember expert) {
         return WorkspaceResponse.builder()
                 .workspaceId(workspace.getWorkspaceId())
                 .jobId(workspace.getJobId())
@@ -108,14 +101,14 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
                 .status(workspace.getStatus())
                 .createdAt(workspace.getCreatedAt())
                 .client(WorkspaceResponse.MemberInfo.builder()
-                        .userId(workspace.getClient().getUserId())
-                        .name(workspace.getClient().getName())
-                        .avatarUrl(workspace.getClient().getAvatarUrl())
+                        .userId(client.getUserId())
+                        .name(client.getName())
+                        .avatarUrl(client.getAvatarUrl())
                         .build())
                 .expert(WorkspaceResponse.MemberInfo.builder()
-                        .userId(workspace.getExpert().getUserId())
-                        .name(workspace.getExpert().getName())
-                        .avatarUrl(workspace.getExpert().getAvatarUrl())
+                        .userId(expert.getUserId())
+                        .name(expert.getName())
+                        .avatarUrl(expert.getAvatarUrl())
                         .build())
                 .projectName(workspace.getProjectDetail().getProjectName())
                 .deadline(workspace.getProjectDetail().getDeadline())

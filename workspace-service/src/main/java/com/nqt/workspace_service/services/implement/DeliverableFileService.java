@@ -1,14 +1,19 @@
 package com.nqt.workspace_service.services.implement;
 
 import com.nqt.workspace_service.dto.request.AddFileRequest;
+import com.nqt.workspace_service.dto.request.ReviewFileRequest;
 import com.nqt.workspace_service.dto.request.UpdateFileRequest;
 import com.nqt.workspace_service.dto.response.DeliverableFileRespond;
 import com.nqt.workspace_service.entities.DeliverableFile;
 import com.nqt.workspace_service.entities.SubmissionPackage;
 import com.nqt.workspace_service.entities.WorkspaceMember;
+import com.nqt.workspace_service.enums.FileStatus;
+import com.nqt.workspace_service.enums.PackageStatus;
+import com.nqt.workspace_service.enums.WorkspaceRole;
 import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
 import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repositories.DeliverableFileRepository;
+import com.nqt.workspace_service.repositories.SubmissionPackageRepository;
 import com.nqt.workspace_service.repositories.WorkspaceMemberRepository;
 import com.nqt.workspace_service.services.interfaces.IDeliverableFileService;
 import jakarta.persistence.EntityManager;
@@ -31,6 +36,7 @@ public class DeliverableFileService implements IDeliverableFileService {
 
     private final DeliverableFileRepository fileRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final SubmissionPackageRepository packageRepository;
     private final UserClientService userClientService;
 
     @PersistenceContext
@@ -130,6 +136,66 @@ public class DeliverableFileService implements IDeliverableFileService {
         file.setIsDelete(true);
         fileRepository.save(file);
         return true;
+    }
+
+    @Override
+    @Transactional
+    public DeliverableFileRespond reviewFile(ReviewFileRequest req, UUID currentUserId) {
+        DeliverableFile file = fileRepository.findById(req.fileId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy file!"));
+
+        // Chỉ CLIENT mới được review
+        UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
+        WorkspaceMember member = memberRepository
+                .findByWorkspaceIdAndUserId(workspaceId, currentUserId)
+                .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc Workspace này!"));
+
+        if (!WorkspaceRole.CLIENT.equals(member.getRole())) {
+            throw new AccessDeniedException("Chỉ CLIENT mới được review file!");
+        }
+
+        // Không cho review file đã APPROVED hoặc SUPERSEDED
+        if (FileStatus.APPROVED.equals(file.getFileStatus()) ||
+                FileStatus.SUPERSEDED.equals(file.getFileStatus())) {
+            throw new IllegalStateException("File này không thể review nữa!");
+        }
+
+        // Bắt buộc có feedback khi REJECTED hoặc REVISION_REQUIRED
+        if ((FileStatus.REJECTED.equals(req.newStatus()) ||
+                FileStatus.REVISION_REQUIRED.equals(req.newStatus()))
+                && (req.feedback() == null || req.feedback().isBlank())) {
+            throw new IllegalArgumentException("Phải có feedback khi REJECTED hoặc yêu cầu chỉnh sửa!");
+        }
+
+        file.setFileStatus(req.newStatus());
+        file.setFeedback(req.feedback());
+        DeliverableFile saved = fileRepository.save(file);
+
+        // Kiểm tra tự động update PackageStatus
+        updatePackageStatusIfNeeded(file.getSubmissionPackage());
+
+        return mapToResponse(saved);
+    }
+
+    private void updatePackageStatusIfNeeded(SubmissionPackage pkg) {
+        List<DeliverableFile> files = pkg.getDeliverableFiles().stream()
+                .filter(f -> !Boolean.TRUE.equals(f.getIsDelete()))
+                .toList();
+
+        boolean allApproved = files.stream()
+                .allMatch(f -> FileStatus.APPROVED.equals(f.getFileStatus()));
+
+        boolean anyRejected = files.stream()
+                .anyMatch(f -> FileStatus.REJECTED.equals(f.getFileStatus()) ||
+                        FileStatus.REVISION_REQUIRED.equals(f.getFileStatus()));
+
+        if (allApproved) {
+            pkg.setStatus(PackageStatus.APPROVED);
+        } else if (anyRejected) {
+            pkg.setStatus(PackageStatus.REJECTED);
+        }
+        // Còn lại giữ PENDING
+        packageRepository.save(pkg);
     }
 
     private WorkspaceMember validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {

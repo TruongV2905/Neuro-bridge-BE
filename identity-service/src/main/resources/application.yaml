@@ -52,8 +52,10 @@ springdoc:
 # gRPC Server Configuration
 grpc:
   server:
-    port: 9090
+    port: 9091
     enable-keep-alive: true
+  security:
+    enabled: false
 
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="

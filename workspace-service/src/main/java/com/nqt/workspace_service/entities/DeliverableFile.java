@@ -1,4 +1,5 @@
 package com.nqt.workspace_service.entities;
+import com.nqt.workspace_service.enums.FileStatus;
 import com.nqt.workspace_service.enums.FileType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,4 +45,11 @@ public class DeliverableFile {
     @Builder.Default
     @Column(nullable = false)
     private Boolean isDelete = false;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private FileStatus fileStatus = FileStatus.PENDING;
+
+    @Column(columnDefinition = "TEXT")
+    private String feedback;
 }

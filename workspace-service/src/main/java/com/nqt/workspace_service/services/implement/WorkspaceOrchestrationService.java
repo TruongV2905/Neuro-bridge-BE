@@ -129,8 +129,8 @@ public class WorkspaceOrchestrationService implements IWorkspaceOrchestrationSer
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy không gian làm việc này!"));
 
         // Kiểm tra quyền: Chỉ Client, Expert trong phòng hoặc Admin hệ thống mới có quyền tố cáo/tranh chấp
-        if (!isAdmin && !workspace.getClient().getUserId().equals(requesterId)
-                && !workspace.getExpert().getUserId().equals(requesterId)) {
+        if (!isAdmin && !workspace.getClientId().equals(requesterId)
+                && !workspace.getClientId().equals(requesterId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền can thiệp vào phòng làm việc này!");
         }
 

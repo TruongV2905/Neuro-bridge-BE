@@ -2,6 +2,7 @@ package com.nqt.workspace_service.services.interfaces;
 import com.nqt.workspace_service.dto.request.CreateWorkspaceRequest;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
 import com.nqt.workspace_service.entities.Workspace;
+import com.nqt.workspace_service.entities.WorkspaceMember;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -13,5 +14,7 @@ public interface IWorkspaceInitializationService {
 //    Workspace getWorkspaceById(UUID workspaceId);
 
     // Sửa lỗi 3: Khai báo thêm hàm convert này trong Interface
-    WorkspaceResponse convertToResponseDto(Workspace workspace);
+    WorkspaceResponse convertToResponseDto(Workspace workspace,
+                                                  WorkspaceMember client,
+                                                  WorkspaceMember expert);
 }

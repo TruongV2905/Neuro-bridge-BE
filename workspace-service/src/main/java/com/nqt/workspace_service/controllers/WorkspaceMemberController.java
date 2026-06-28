@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/workspace-members")
+@RequestMapping("/api/v1/workspace-members")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Workspace Member Controller", description = "Quản lý và truy vấn thông tin thành viên trong không gian làm việc (Workspace)")

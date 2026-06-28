@@ -54,10 +54,10 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
             for (var fileReq : request.getFiles()) {
                 DeliverableFile file = DeliverableFile.builder()
                         .submissionPackage(submissionPackage) // Khóa ngoại quy đầu về cha nó
-                        .fileName(fileReq.getFileName())
-                        .fileUrl(fileReq.getFileUrl())
-                        .fileSize(fileReq.getFileSize())
-                        .fileType(FileType.valueOf(fileReq.getFileType().toUpperCase()))
+                        .fileName(fileReq.fileName())
+                        .fileUrl(fileReq.fileUrl())
+                        .fileSize(fileReq.fileSize())
+                        .fileType(fileReq.fileType())
                         .build();
                 deliverableFiles.add(file);
             }
@@ -76,7 +76,7 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
 
     private void validateExpertAccess(Workspace workspace, UUID expertId) {
         // Kiểm tra sở hữu trong DB (Căn cứ xác thực chính)
-        if (!workspace.getExpert().getUserId().equals(expertId)) {
+        if (!workspace.getClientId().equals(expertId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Expert được chỉ định cho dự án này!");
         }
 

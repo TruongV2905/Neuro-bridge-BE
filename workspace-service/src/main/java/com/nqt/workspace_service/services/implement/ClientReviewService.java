@@ -144,7 +144,7 @@ public class ClientReviewService implements IClientReviewService {
      */
     private void validateClientAccess(Workspace workspace, UUID clientId) {
         // 1. Luôn kiểm tra quyền sở hữu từ Database nội bộ (Căn cứ xác thực chính)
-        if (!workspace.getClient().getUserId().equals(clientId)) {
+        if (!workspace.getClientId().equals(clientId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không phải Client sở hữu phòng làm việc này!");
         }
 

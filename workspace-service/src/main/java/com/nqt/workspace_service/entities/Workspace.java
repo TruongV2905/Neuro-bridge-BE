@@ -56,12 +56,4 @@ public class Workspace {
     // 1-N với SubmissionPackage
     @OneToMany(mappedBy = "workspace", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SubmissionPackage> submissionPackages = new ArrayList<>();
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", referencedColumnName = "user_id", insertable = false, updatable = false)
-    private WorkspaceMember client;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expert_id", referencedColumnName = "user_id", insertable = false, updatable = false)
-    private WorkspaceMember expert;
 }

@@ -14,6 +14,6 @@ import java.util.UUID;
 public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     boolean existsByJobId(UUID jobId);
 
-    @Query("SELECT w FROM Workspace w WHERE w.client.userId = :userId OR w.expert.userId = :userId")
+    @Query("SELECT w FROM Workspace w WHERE w.clientId = :userId OR w.expertId = :userId")
     Page<Workspace> findByUserId(@Param("userId") UUID userId, Pageable pageable);
 }

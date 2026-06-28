@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 @RestController
-@RequestMapping("/projects")
+@RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Project Detail Controller", description = "Quản lý thông tin chi tiết, trạng thái và tiến độ của dự án trong Workspace")

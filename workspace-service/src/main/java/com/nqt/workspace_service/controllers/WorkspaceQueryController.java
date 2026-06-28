@@ -5,9 +5,12 @@ import com.nqt.workspace_service.dto.response.WorkspaceSummaryResponse;
 import com.nqt.workspace_service.services.interfaces.IWorkspaceQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +19,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/workspaces")
 @RequiredArgsConstructor
+@Slf4j
 public class WorkspaceQueryController {
 
     private final IWorkspaceQueryService workspaceQueryService;
@@ -33,12 +37,12 @@ public class WorkspaceQueryController {
                     "* **Lỗi 403 bọc lót:** Bất kỳ User nào khác có Token hợp lệ nhưng cố tình thay đổi `workspaceId` trên URL để chọc phá phòng người khác sẽ bị tầng Service chặn đứng ngay lập tức."
     )
     public ResponseEntity<WorkspaceResponse> getWorkspaceDetails(
-            @PathVariable UUID workspaceId,
-            @AuthenticationPrincipal Jwt jwt) {
+            @PathVariable UUID workspaceId) {
 
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
-        boolean isAdmin = jwt.getClaimAsStringList("roles") != null
-                && jwt.getClaimAsStringList("roles").contains("ROLE_ADMIN");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID currentUserId = UUID.fromString(auth.getName()); // Gateway đã set principal = userId
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         WorkspaceResponse response = workspaceQueryService.getWorkspaceDetails(workspaceId, currentUserId, isAdmin);
         return ResponseEntity.ok(response);
@@ -61,10 +65,13 @@ public class WorkspaceQueryController {
     )
     public ResponseEntity<PagedResponse<WorkspaceSummaryResponse>> getMyWorkspaces(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
-            @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
-            @AuthenticationPrincipal Jwt jwt) {
+            @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize) {
 
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
+        UUID currentUserId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getName()
+        );
+
+        log.info("🔍 Dashboard query cho userId: {}", currentUserId);
 
         PagedResponse<WorkspaceSummaryResponse> response = workspaceQueryService.getWorkspacesByUser(currentUserId, pageNo, pageSize);
         return ResponseEntity.ok(response);

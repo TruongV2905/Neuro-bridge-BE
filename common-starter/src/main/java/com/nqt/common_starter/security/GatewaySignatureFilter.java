@@ -108,6 +108,9 @@ public class GatewaySignatureFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
+            log.info("SecurityContext set: principal={}, authorities={}",
+                    authentication.getPrincipal(),
+                    authentication.getAuthorities());
         } catch (Exception e) {
             log.error("Gateway authentication error: {}", e.getMessage());
             SecurityContextHolder.clearContext();

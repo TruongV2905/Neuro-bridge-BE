@@ -11,8 +11,14 @@ import java.util.UUID;
 
 @Repository
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
-    @Query("SELECT m FROM WorkspaceMember m WHERE m.workspace.workspaceId = :workspaceId AND m.userId = :userId")
-    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(@Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
-    @Query("SELECT m FROM WorkspaceMember m WHERE m.workspace.workspaceId = :workspaceId")
+
+    // Sửa m.workspace.workspaceId → m.workspaceId
+    @Query("SELECT m FROM WorkspaceMember m WHERE m.workspaceId = :workspaceId AND m.userId = :userId")
+    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(@Param("workspaceId") UUID workspaceId,
+                                                         @Param("userId") UUID userId);
+
+    @Query("SELECT m FROM WorkspaceMember m WHERE m.workspaceId = :workspaceId")
     List<WorkspaceMember> findByWorkspaceId(@Param("workspaceId") UUID workspaceId);
+
+    Optional<WorkspaceMember> findByUserId(UUID userId);
 }

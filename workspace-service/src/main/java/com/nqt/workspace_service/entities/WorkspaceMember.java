@@ -16,14 +16,13 @@ public class WorkspaceMember {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "member_id")
-    private UUID memberId; // ID định danh của bản ghi trong bảng trung gian này
+    private UUID memberId;
+
+    @Column(name = "workspace_id", nullable = false)  // thêm field này
+    private UUID workspaceId;
 
     @Column(name = "user_id", nullable = false, unique = true)
     private UUID userId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "workspace_id", nullable = false)
-    private Workspace workspace; // Mối quan hệ để link tới Workspace
 
     @Column(nullable = false)
     private String name;

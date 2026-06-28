@@ -118,6 +118,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<APIResponse<Object>> handleIllegalState(IllegalStateException exception) {
+        APIResponse<Object> apiResponse = new APIResponse<>();
+        apiResponse.setCode(409);
+        apiResponse.setMessage(exception.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<APIResponse<Object>> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException exception) {
+        APIResponse<Object> apiResponse = new APIResponse<>();
+        apiResponse.setCode(409);
+        apiResponse.setMessage("Vi phạm ràng buộc dữ liệu: " + exception.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
+    }
+
     private String extractMessage(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);

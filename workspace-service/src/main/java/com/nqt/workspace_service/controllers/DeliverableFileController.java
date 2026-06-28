@@ -1,6 +1,7 @@
 package com.nqt.workspace_service.controllers;
 
 import com.nqt.workspace_service.dto.request.AddFileRequest;
+import com.nqt.workspace_service.dto.request.ReviewFileRequest;
 import com.nqt.workspace_service.dto.request.UpdateFileRequest;
 import com.nqt.workspace_service.dto.response.DeliverableFileRespond;
 import com.nqt.workspace_service.services.interfaces.IDeliverableFileService;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,5 +78,17 @@ public class DeliverableFileController {
         UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
         boolean isDeleted = fileService.deleteFile(fileId, currentUserId);
         return ResponseEntity.ok(isDeleted);
+    }
+
+
+    @PatchMapping("/review")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Client review từng file")
+    public ResponseEntity<DeliverableFileRespond> reviewFile(
+            @Valid @RequestBody ReviewFileRequest req) {
+        UUID currentUserId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getName()
+        );
+        return ResponseEntity.ok(fileService.reviewFile(req, currentUserId));
     }
 }
