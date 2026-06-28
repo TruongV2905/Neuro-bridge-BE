@@ -1,0 +1,50 @@
+server:
+  port: 8084
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: rating-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/rating
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  threads:
+    virtual:
+      enabled: true
+  main:
+    allow-circular-references: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+grpc:
+  server:
+    enabled: false
+  client:
+    enabled: false
+
+app:
+  shared-secret: ${SHARED_SECRET:Y2hhbmdlLW1lLWJhc2U2NC1zaGFyZWQtc2VjcmV0}
+  security:
+    public-endpoints:
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
