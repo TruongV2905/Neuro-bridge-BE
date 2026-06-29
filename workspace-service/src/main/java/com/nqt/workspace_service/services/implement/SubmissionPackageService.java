@@ -1,4 +1,6 @@
 package com.nqt.workspace_service.services.implement;
+import com.nqt.common_starter.dto.event.NotificationEvent;
+import com.nqt.common_starter.kafka.NotificationEventPublisher;
 import com.nqt.workspace_service.dto.request.DeliverableFileRequest;
 import com.nqt.workspace_service.dto.request.ResubmitPackageRequest;
 import com.nqt.workspace_service.dto.request.ReviewPackageRequest;
@@ -40,6 +42,8 @@ public class SubmissionPackageService implements ISubmissionPackageService {
     private final SubmissionPackageRepository packageRepository;
     private final WorkspaceMemberRepository memberRepository;
     private final UserClientService userClientService;
+//    private final PackageEventPublisher eventPublisher;
+    private final NotificationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -124,6 +128,27 @@ public class SubmissionPackageService implements ISubmissionPackageService {
                 .collect(Collectors.toList());
 
         pkg.getDeliverableFiles().addAll(files);
+        SubmissionPackage saved = packageRepository.save(pkg);
+
+        UUID reviewerId = memberRepository
+                .findByWorkspaceIdAndRole(request.getWorkspaceId(), WorkspaceRole.CLIENT)
+                .map(WorkspaceMember::getUserId)
+                .orElse(null); // null thì notification-service không gửi được
+
+        if (reviewerId != null) {
+            eventPublisher.publish(
+                    NotificationEventPublisher.PACKAGE_SUBMITTED,
+                    NotificationEvent.builder()
+                            .eventType("PACKAGE_SUBMITTED")
+                            .recipientUserId(reviewerId)
+                            .senderName(member.getName())
+                            .resourceId(saved.getPackageId())
+                            .workspaceId(request.getWorkspaceId())
+                            .resourceVersion(String.valueOf(saved.getVersion()))
+                            .build()
+            );
+        }
+        // ─────────────────────────────────────────────────────────────────────
         return mapToPackageRespond(packageRepository.save(pkg));
     }
 
@@ -285,6 +310,26 @@ public class SubmissionPackageService implements ISubmissionPackageService {
                 .collect(Collectors.toList());
 
         newPkg.getDeliverableFiles().addAll(newFiles);
+        SubmissionPackage saved = packageRepository.save(newPkg);
+        UUID clientId = memberRepository
+                .findByWorkspaceIdAndRole(oldPkg.getWorkspace().getWorkspaceId(), WorkspaceRole.CLIENT)
+                .map(WorkspaceMember::getUserId)
+                .orElse(null);
+
+        if (clientId != null) {
+            eventPublisher.publish(
+                    NotificationEventPublisher.PACKAGE_RESUBMITTED,
+                    NotificationEvent.builder()
+                            .eventType("PACKAGE_RESUBMITTED")
+                            .recipientUserId(clientId)
+                            .senderName(member.getName())
+                            .resourceId(saved.getPackageId())
+                            .workspaceId(saved.getWorkspace().getWorkspaceId())
+                            .resourceVersion(String.valueOf(saved.getVersion()))
+                            .build()
+            );
+        }
+
         return mapToPackageRespond(packageRepository.save(newPkg));
     }
 

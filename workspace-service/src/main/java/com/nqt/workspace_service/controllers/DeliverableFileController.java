@@ -39,7 +39,7 @@ public class DeliverableFileController {
     public ResponseEntity<List<DeliverableFileRespond>> getFilesByPackage(
             @PathVariable UUID packageId,
             @AuthenticationPrincipal Jwt jwt) {
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
+        UUID currentUserId = UUID.fromString(SecurityContextHolder.getContext().getAuthentication().getName());
         List<DeliverableFileRespond> files = fileService.getFilesByPackage(packageId, currentUserId);
         return ResponseEntity.ok(files);
     }

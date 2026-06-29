@@ -1,5 +1,7 @@
 package com.nqt.workspace_service.services.implement;
 
+import com.nqt.common_starter.dto.event.NotificationEvent;
+import com.nqt.common_starter.kafka.NotificationEventPublisher;
 import com.nqt.workspace_service.dto.request.AddFileRequest;
 import com.nqt.workspace_service.dto.request.ReviewFileRequest;
 import com.nqt.workspace_service.dto.request.UpdateFileRequest;
@@ -38,6 +40,7 @@ public class DeliverableFileService implements IDeliverableFileService {
     private final WorkspaceMemberRepository memberRepository;
     private final SubmissionPackageRepository packageRepository;
     private final UserClientService userClientService;
+    private final NotificationEventPublisher eventPublisher;
 
     @PersistenceContext
     private final EntityManager entityManager;
@@ -172,12 +175,20 @@ public class DeliverableFileService implements IDeliverableFileService {
         DeliverableFile saved = fileRepository.save(file);
 
         // Kiểm tra tự động update PackageStatus
-        updatePackageStatusIfNeeded(file.getSubmissionPackage());
+        WorkspaceMember reviewer = memberRepository
+                .findByWorkspaceIdAndUserId(workspaceId, currentUserId)
+                .orElseThrow();
+
+        updatePackageStatusIfNeeded(file.getSubmissionPackage(),
+                currentUserId,
+                reviewer.getName());
 
         return mapToResponse(saved);
     }
 
-    private void updatePackageStatusIfNeeded(SubmissionPackage pkg) {
+    private void updatePackageStatusIfNeeded(SubmissionPackage pkg,
+                                             UUID reviewerId,
+                                             String reviewerName) {
         List<DeliverableFile> files = pkg.getDeliverableFiles().stream()
                 .filter(f -> !Boolean.TRUE.equals(f.getIsDelete()))
                 .toList();
@@ -189,13 +200,69 @@ public class DeliverableFileService implements IDeliverableFileService {
                 .anyMatch(f -> FileStatus.REJECTED.equals(f.getFileStatus()) ||
                         FileStatus.REVISION_REQUIRED.equals(f.getFileStatus()));
 
+        UUID workspaceId = pkg.getWorkspace().getWorkspaceId();
+
         if (allApproved) {
             pkg.setStatus(PackageStatus.APPROVED);
+            packageRepository.save(pkg);
+
+            // Lấy EXPERT để gửi thông báo
+            UUID expertId = memberRepository
+                    .findByWorkspaceIdAndRole(workspaceId, WorkspaceRole.EXPERT)
+                    .map(WorkspaceMember::getUserId)
+                    .orElse(null);
+
+            if (expertId != null) {
+                eventPublisher.publish(
+                        NotificationEventPublisher.PACKAGE_APPROVED,
+                        NotificationEvent.builder()
+                                .eventType("PACKAGE_APPROVED")
+                                .recipientUserId(expertId)
+                                .senderName(reviewerName)
+                                .resourceId(pkg.getPackageId())
+                                .workspaceId(workspaceId)
+                                .resourceVersion(String.valueOf(pkg.getVersion()))
+                                // Thêm message tiền được release
+                                .customMessage(String.format(
+                                        "%s đã chấp thuận toàn bộ gói bàn giao v%s. " +
+                                                "Tiền trong ví chung đã được giải phóng vào tài khoản của bạn.",
+                                        reviewerName, pkg.getVersion()))
+                                .build()
+                );
+            }
+
         } else if (anyRejected) {
             pkg.setStatus(PackageStatus.REJECTED);
+            packageRepository.save(pkg);
+
+            // Lấy EXPERT để gửi thông báo
+            UUID expertId = memberRepository
+                    .findByWorkspaceIdAndRole(workspaceId, WorkspaceRole.EXPERT)
+                    .map(WorkspaceMember::getUserId)
+                    .orElse(null);
+
+            if (expertId != null) {
+                // Gom feedback của các file bị reject
+                String feedback = files.stream()
+                        .filter(f -> FileStatus.REJECTED.equals(f.getFileStatus()) ||
+                                FileStatus.REVISION_REQUIRED.equals(f.getFileStatus()))
+                        .map(f -> f.getFileType() + ": " + f.getFeedback())
+                        .reduce("", (a, b) -> a.isEmpty() ? b : a + " | " + b);
+
+                eventPublisher.publish(
+                        NotificationEventPublisher.PACKAGE_REJECTED,
+                        NotificationEvent.builder()
+                                .eventType("PACKAGE_REJECTED")
+                                .recipientUserId(expertId)
+                                .senderName(reviewerName)
+                                .resourceId(pkg.getPackageId())
+                                .workspaceId(workspaceId)
+                                .resourceVersion(String.valueOf(pkg.getVersion()))
+                                .feedback(feedback)
+                                .build()
+                );
+            }
         }
-        // Còn lại giữ PENDING
-        packageRepository.save(pkg);
     }
 
     private WorkspaceMember validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {

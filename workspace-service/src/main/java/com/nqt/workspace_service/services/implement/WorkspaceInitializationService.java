@@ -1,4 +1,6 @@
 package com.nqt.workspace_service.services.implement;
+import com.nqt.common_starter.dto.event.NotificationEvent;
+import com.nqt.common_starter.kafka.NotificationEventPublisher;
 import com.nqt.workspace_service.dto.request.CreateWorkspaceRequest;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
 import com.nqt.workspace_service.entities.ProjectDetail;
@@ -27,6 +29,7 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
     private final UserClientService userClientService;
+    private final NotificationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -60,6 +63,28 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
                 request.getClientId(), WorkspaceRole.CLIENT, savedWorkspace.getWorkspaceId());
         WorkspaceMember expert = getOrCreateMember(
                 request.getExpertId(), WorkspaceRole.EXPERT, savedWorkspace.getWorkspaceId());
+
+        eventPublisher.publish(
+                NotificationEventPublisher.WORKSPACE_INVITED,
+                NotificationEvent.builder()
+                        .eventType("WORKSPACE_INVITED")
+                        .recipientUserId(request.getClientId())
+                        .senderName("Neural Bridge")
+                        .resourceId(savedWorkspace.getWorkspaceId())
+                        .workspaceId(savedWorkspace.getWorkspaceId())
+                        .build()
+        );
+
+        eventPublisher.publish(
+                NotificationEventPublisher.WORKSPACE_INVITED,
+                NotificationEvent.builder()
+                        .eventType("WORKSPACE_INVITED")
+                        .recipientUserId(request.getExpertId())
+                        .senderName("Neural Bridge")
+                        .resourceId(savedWorkspace.getWorkspaceId())
+                        .workspaceId(savedWorkspace.getWorkspaceId())
+                        .build()
+        );
 
         return convertToResponseDto(savedWorkspace, client, expert);
     }

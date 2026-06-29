@@ -1,5 +1,6 @@
 package com.nqt.workspace_service.repositories;
 import com.nqt.workspace_service.entities.WorkspaceMember;
+import com.nqt.workspace_service.enums.WorkspaceRole;
 import feign.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -21,4 +22,6 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     List<WorkspaceMember> findByWorkspaceId(@Param("workspaceId") UUID workspaceId);
 
     Optional<WorkspaceMember> findByUserId(UUID userId);
+    Optional<WorkspaceMember> findByWorkspaceIdAndRole(UUID workspaceId, WorkspaceRole role);
+
 }
