@@ -242,6 +242,21 @@ public class SubmissionPackageService implements ISubmissionPackageService {
             throw new AccessDeniedException("Chỉ EXPERT mới được nộp lại!");
         }
 
+        Set<FileType> approvedTypes = oldPkg.getDeliverableFiles().stream()
+                .filter(f -> FileStatus.APPROVED.equals(f.getFileStatus()))
+                .map(DeliverableFile::getFileType)
+                .collect(Collectors.toSet());
+
+        List<FileType> invalidUpdates = request.getUpdatedFiles().stream()
+                .map(DeliverableFileRequest::fileType)
+                .filter(approvedTypes::contains)
+                .collect(Collectors.toList());
+
+        if (!invalidUpdates.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Không thể thay đổi file đã được APPROVED: " + invalidUpdates);
+        }
+
         // Chỉ cho resubmit khi package cũ đang PENDING hoặc REJECTED
         if (PackageStatus.APPROVED.equals(oldPkg.getStatus()) ||
                 PackageStatus.SUPERSEDED.equals(oldPkg.getStatus())) {
