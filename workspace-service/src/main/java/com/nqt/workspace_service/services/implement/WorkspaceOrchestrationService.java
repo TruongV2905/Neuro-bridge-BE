@@ -201,7 +201,7 @@ public class WorkspaceOrchestrationService implements IWorkspaceOrchestrationSer
     private void enrichDisputeLog(UUID requesterId, UUID workspaceId, String reason) {
         try {
             var userInfo = userClientService.getUserInfo(requesterId.toString());
-            String name = (userInfo != null) ? userInfo.getUsername() : "Unknown";
+            String name = (userInfo != null) ? userInfo.getFullName() : "Unknown";
             log.warn("🚨 TRANH CHẤP Workspace {} bởi {} (ID: {}). Lý do: {}",
                     workspaceId, name, requesterId, reason);
         } catch (Exception e) {

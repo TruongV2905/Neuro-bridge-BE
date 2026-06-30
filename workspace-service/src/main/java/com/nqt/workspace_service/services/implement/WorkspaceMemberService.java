@@ -69,7 +69,7 @@ public class WorkspaceMemberService implements IWorkspaceMemberService {
             var userInfo = userClientService.getUserInfo(member.getUserId().toString());
             if (userInfo != null) {
                 // Đồng bộ thông tin từ Identity Service vào Entity tạm thời để phản hồi client
-                member.setName(userInfo.getUsername());
+                member.setName(userInfo.getFullName());
                 member.setAvatarUrl(userInfo.getAvatarUrl());
             }
         } catch (Exception e) {

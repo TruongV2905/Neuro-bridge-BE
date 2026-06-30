@@ -158,7 +158,7 @@ public class ClientReviewService implements IClientReviewService {
                 throw new IllegalStateException("Tài khoản người dùng không hợp lệ!");
             }
 
-            log.info("Client {} (ID: {}) thực hiện review sản phẩm.", clientInfo.getUsername(), clientId);
+            log.info("Client {} (ID: {}) thực hiện review sản phẩm.", clientInfo.getFullName(), clientId);
 
         } catch (IdentityServiceUnavailableException e) {
             log.warn("⚠️ IdentityService không khả dụng (gRPC Error: {}). Fallback: Cho phép tiếp tục dựa trên xác thực DB nội bộ.", e.getMessage());

@@ -3,7 +3,6 @@ com.nqt.common_starter.config.ObservationConfig
 
 com.nqt.common_starter.config.SecurityConfig
 com.nqt.common_starter.config.SecurityProperties
-com.nqt.common_starter.security.GatewaySignatureFilter
 com.nqt.common_starter.security.CustomAccessDeniedHandler
 com.nqt.common_starter.security.CustomAuthenticationEntryPoint
 com.nqt.common_starter.exception.GlobalExceptionHandler

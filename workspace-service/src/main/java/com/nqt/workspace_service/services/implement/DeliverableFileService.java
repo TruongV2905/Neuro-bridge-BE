@@ -276,7 +276,7 @@ public class DeliverableFileService implements IDeliverableFileService {
             if (userInfo == null) {
                 throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
             }
-            log.info("User {} (Name: {}) đang thực hiện thao tác trên Workspace {}", currentUserId, userInfo.getUsername(), workspaceId);
+            log.info("User {} (Name: {}) đang thực hiện thao tác trên Workspace {}", currentUserId, userInfo.getFullName(), workspaceId);
         } catch (IdentityServiceUnavailableException e) {
             log.warn("⚠️ IdentityService không khả dụng. Cho phép thao tác dựa trên xác thực DB.");
         } catch (Exception e) {

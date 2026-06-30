@@ -114,7 +114,7 @@ public class ProjectDetailService implements IProjectDetailService {
             if (userInfo == null) {
                 throw new GlobalException("Người dùng không tồn tại trên hệ thống!");
             }
-            log.info("User {} ({}) đang thực hiện thao tác trên Project.", currentUserId, userInfo.getUsername());
+            log.info("User {} ({}) đang thực hiện thao tác trên Project.", currentUserId, userInfo.getFullName());
         } catch (IdentityServiceUnavailableException e) {
             log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép thao tác dựa trên bảo mật của SecurityContext.");
         } catch (IllegalArgumentException e) {

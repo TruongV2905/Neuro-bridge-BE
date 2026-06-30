@@ -1,9 +1,9 @@
 package com.nqt.identity_service.grpc;
 
+import com.identity.grpc.UserRequest;
+import com.identity.grpc.UserResponse;
+import com.identity.grpc.UserServiceGrpc;
 import com.nqt.identity_service.repository.UserRepository;
-import com.yourcompany.grpc.UserRequest;
-import com.yourcompany.grpc.UserResponse;
-import com.yourcompany.grpc.UserServiceGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +24,8 @@ public class UserGrpcService extends UserServiceGrpc.UserServiceImplBase {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             UserResponse response = UserResponse.newBuilder()
-                    .setUserId(user.getId().toString())
-                    .setUsername(user.getFullName() != null ? user.getFullName() : "")
+                    .setId(user.getId().toString())
+                    .setFullName(user.getFullName() != null ? user.getFullName() : "")
                     .setEmail(user.getEmail() != null ? user.getEmail() : "")
                     .setAvatarUrl(user.getAvatarUrl() != null ? user.getAvatarUrl() : "")
                     .build();

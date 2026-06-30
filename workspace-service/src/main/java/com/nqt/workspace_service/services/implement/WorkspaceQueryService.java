@@ -75,7 +75,7 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
         try {
             var partnerInfo = userClientService.getUserInfo(partnerId.toString());
             if (partnerInfo != null) {
-                partnerName = partnerInfo.getUsername();
+                partnerName = partnerInfo.getFullName();
                 partnerAvatar = partnerInfo.getAvatarUrl();
             }
         } catch (Exception e) {
@@ -105,12 +105,12 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
         try {
             var clientInfo = userClientService.getUserInfo(workspace.getClientId().toString());
             if (clientInfo != null && client != null) {
-                client.setName(clientInfo.getUsername());
+                client.setName(clientInfo.getFullName());
                 client.setAvatarUrl(clientInfo.getAvatarUrl());
             }
             var expertInfo = userClientService.getUserInfo(workspace.getExpertId().toString());
             if (expertInfo != null && expert != null) {
-                expert.setName(expertInfo.getUsername());
+                expert.setName(expertInfo.getFullName());
                 expert.setAvatarUrl(expertInfo.getAvatarUrl());
             }
         } catch (Exception e) {

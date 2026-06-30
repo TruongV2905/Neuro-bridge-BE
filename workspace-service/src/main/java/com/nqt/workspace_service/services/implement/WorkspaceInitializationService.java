@@ -96,7 +96,7 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
             try {
                 var userInfo = userClientService.getUserInfo(userId.toString());
                 if (userInfo != null) {
-                    name = userInfo.getUsername();
+                    name = userInfo.getFullName();
                     avatar = userInfo.getAvatarUrl();
                 }
             } catch (Exception e) {

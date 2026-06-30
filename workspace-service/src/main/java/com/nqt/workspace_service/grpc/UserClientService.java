@@ -1,8 +1,8 @@
 package com.nqt.workspace_service.grpc;
 
-import com.yourcompany.grpc.UserRequest;
-import com.yourcompany.grpc.UserResponse;
-import com.yourcompany.grpc.UserServiceGrpc;
+import com.identity.grpc.UserRequest;
+import com.identity.grpc.UserResponse;
+import com.identity.grpc.UserServiceGrpc;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import net.devh.boot.grpc.client.inject.GrpcClient;

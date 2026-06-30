@@ -86,7 +86,7 @@ public class ExpertSubmissionService implements IExpertSubmissionService {
             if (expertInfo == null) {
                 throw new IllegalStateException("Expert không tồn tại trên hệ thống!");
             }
-            log.info("Expert {} (Name: {}) đang thực hiện nộp sản phẩm.", expertId, expertInfo.getUsername());
+            log.info("Expert {} (Name: {}) đang thực hiện nộp sản phẩm.", expertId, expertInfo.getFullName());
         } catch (IdentityServiceUnavailableException e) {
             log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép nộp bài dựa trên xác thực DB.");
         } catch (Exception e) {

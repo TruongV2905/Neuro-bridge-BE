@@ -7,9 +7,15 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @EnableFeignClients
 @EnableDiscoveryClient
-@SpringBootApplication(exclude = {
-        net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration.class
-})
+@SpringBootApplication(
+        scanBasePackages = {
+                "com.nqt.identity_service",
+                "com.nqt.common_starter"
+        },
+        exclude = {
+                net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration.class
+        }
+)
 public class IdentityServiceApplication {
 
 	public static void main(String[] args) {

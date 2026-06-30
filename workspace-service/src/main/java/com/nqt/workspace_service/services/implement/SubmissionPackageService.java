@@ -345,7 +345,7 @@ public class SubmissionPackageService implements ISubmissionPackageService {
             if (userInfo == null) {
                 throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
             }
-            log.info("User {} ({}) đang thực hiện thao tác với Workspace {}", currentUserId, userInfo.getUsername(), workspaceId);
+            log.info("User {} ({}) đang thực hiện thao tác với Workspace {}", currentUserId, userInfo.getFullName(), workspaceId);
         } catch (IdentityServiceUnavailableException e) {
             log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép thao tác dựa trên xác thực DB nội bộ.");
         } catch (Exception e) {
