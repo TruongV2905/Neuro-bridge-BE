@@ -9,7 +9,9 @@ import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.dto.request.IntrospectRequest;
 import com.nqt.identity_service.dto.response.IntrospectResponse;
+import com.nqt.identity_service.entity.RefreshToken;
 import com.nqt.identity_service.entity.User;
+import com.nqt.identity_service.repository.RefreshTokenRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -30,6 +32,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TokenService {
+
+    RefreshTokenRepository refreshTokenRepository;
+
+
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -42,64 +48,67 @@ public class TokenService {
     @Value("${jwt.refreshable-duration}")
     protected long REFRESHABLE_DURATION;
 
+    @NonFinal
+    @Value("${jwt.refresh-duration}")
+    protected long REFRESH_DURATION;
+
 
     public IntrospectResponse introspect(IntrospectRequest request) {
         var token = request.getToken();
-        boolean isValid = true;
-        SignedJWT signedJWT;
 
         try {
-            signedJWT = verifyToken(token, false);
+            SignedJWT signedJWT = verifyToken(token);
             var claimsSet = signedJWT.getJWTClaimsSet();
 
-            // Trích xuất scope (chứa cả ROLE_ và permissions)
+            // ✅ safe null + trim
             String scope = claimsSet.getStringClaim("scope");
-            List<String> allAuthorities = Arrays.asList(scope.split(" "));
 
-            // Tách roles và permissions
-            List<String> roles = allAuthorities.stream()
+            List<String> authorities = (scope != null && !scope.isBlank())
+                    ? Arrays.asList(scope.trim().split("\\s+"))
+                    : List.of();
+
+            // ✅ lấy role (có ROLE_ prefix)
+            String role = authorities.stream()
                     .filter(s -> s.startsWith("ROLE_"))
-                    .map(s -> s.replace("ROLE_", "")) // Bỏ tiền tố để về đúng tên role
-                    .collect(Collectors.toList());
-
-            List<String> permissions = allAuthorities.stream()
-                    .filter(s -> !s.startsWith("ROLE_"))
-                    .collect(Collectors.toList());
+                    .map(s -> s.substring(5)) // bỏ ROLE_
+                    .findFirst()
+                    .orElse(null);
 
             return IntrospectResponse.builder()
                     .valid(true)
-                    .userId(claimsSet.getSubject()) // Thường userId nằm ở sub
-                    .roles(roles)
-                    .permissions(permissions)
+                    .userId(claimsSet.getSubject())
+                    .role(role)
                     .build();
 
-        } catch (GlobalException | JOSEException | ParseException e) {
-            isValid = false;
+        } catch (Exception e) {
+            return IntrospectResponse.builder()
+                    .valid(false)
+                    .build();
         }
-
-        return IntrospectResponse.builder().valid(isValid).build();
     }
 
     public String generateToken(User user) {
+
+        byte[] keyBytes = Base64.getDecoder().decode(SIGNER_KEY);
+
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
-        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(user.getId().toString())
                 .issuer("nqt")
+                .audience("nqt-app")
                 .issueTime(new Date())
                 .expirationTime(new Date(
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
                 ))
                 .jwtID(UUID.randomUUID().toString())
-                .claim("scope", buildScope(user))
+                .claim("scope", "ROLE_" + user.getRole().name())
                 .build();
 
-        Payload payload = new Payload(jwtClaimsSet.toJSONObject());
-
-        JWSObject jwsObject = new JWSObject(header, payload);
+        JWSObject jwsObject = new JWSObject(header, new Payload(claims.toJSONObject()));
 
         try {
-            jwsObject.sign(new MACSigner(SIGNER_KEY.getBytes()));
+            jwsObject.sign(new MACSigner(keyBytes));
             return jwsObject.serialize();
         } catch (JOSEException e) {
             log.error("Cannot create token", e);
@@ -107,33 +116,65 @@ public class TokenService {
         }
     }
 
-    private SignedJWT verifyToken(String token, boolean isRefresh) throws JOSEException, ParseException {
-        JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
+    private SignedJWT verifyToken(String token)
+            throws JOSEException, ParseException {
+
+        byte[] keyBytes = Base64.getDecoder().decode(SIGNER_KEY);
 
         SignedJWT signedJWT = SignedJWT.parse(token);
 
-        Date expiryTime = (isRefresh)
-                ? new Date(signedJWT.getJWTClaimsSet().getIssueTime()
-                .toInstant().plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS).toEpochMilli())
-                : signedJWT.getJWTClaimsSet().getExpirationTime();
+        JWSVerifier verifier = new MACVerifier(keyBytes);
 
-        var verified = signedJWT.verify(verifier);
+        // 1. verify signature
+        boolean verified = signedJWT.verify(verifier);
 
-        if (!(verified && expiryTime.after(new Date()))) throw new GlobalException(ErrorCode.UNAUTHENTICATED);
+        if (!verified) {
+            throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
+        }
+
+        var claims = signedJWT.getJWTClaimsSet();
+
+        Date now = new Date();
+
+        // 2. check expiration (CHUẨN JWT)
+        Date exp = claims.getExpirationTime();
+
+        if (exp == null || exp.before(now)) {
+            throw new GlobalException(ErrorCode.UNAUTHENTICATED.getMessage());
+        }
         return signedJWT;
     }
 
-    private String buildScope(User user) {
-        StringJoiner stringJoiner = new StringJoiner(" ");
+    public RefreshToken createRefreshToken(User user) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken(UUID.randomUUID() + UUID.randomUUID().toString());
+        refreshToken.setUserId(user.getId().toString());
+        refreshToken.setIssuedAt(Instant.now());
+        refreshToken.setRevoked(false);
+        refreshToken.setTtl(REFRESH_DURATION * 24 * 60 * 60);
 
-        if (!CollectionUtils.isEmpty(user.getRoles()))
-            user.getRoles().forEach(role -> {
-                stringJoiner.add("ROLE_" + role.getName());
-                if (!CollectionUtils.isEmpty(role.getPermissions()))
-                    role.getPermissions().forEach(permission -> stringJoiner.add(permission.getName()));
-            });
+        return refreshTokenRepository.save(refreshToken);
+    }
 
-        return stringJoiner.toString();
+
+    public Optional<RefreshToken> verifyRefreshToken(String token) {
+        return refreshTokenRepository.findById(token).filter(rt -> !rt.isRevoked());
+    }
+
+    private void revoke(String token) {
+        refreshTokenRepository.findById(token).ifPresent(rt -> {
+            rt.setRevoked(true);
+            refreshTokenRepository.save(rt);
+        });
+    }
+
+    public void revokeRefreshToken(String token) {
+        revoke(token);
+    }
+
+    public RefreshToken rotateRefreshToken(String oldToken, User user) {
+        revoke(oldToken);
+        return createRefreshToken(user);
     }
 
 }

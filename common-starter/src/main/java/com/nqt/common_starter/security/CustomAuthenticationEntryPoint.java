@@ -27,7 +27,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         response.setContentType("application/json");
 
         APIResponse<?> body =
-                APIResponse.error(ErrorCode.EMPTY_TOKEN.getCode(), ErrorCode.EMPTY_TOKEN.getMessage());
+                APIResponse.response(ErrorCode.EMPTY_TOKEN.getCode(), ErrorCode.EMPTY_TOKEN.getMessage(),null);
 
         response.getWriter().write(objectMapper.writeValueAsString(body));
     }

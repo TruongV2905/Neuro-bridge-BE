@@ -1,0 +1,134 @@
+package com.nqt.identity_service.service;
+
+import com.nqt.common_starter.constant.ErrorCode;
+import com.nqt.common_starter.dto.response.PageResponse;
+import com.nqt.common_starter.exception.GlobalException;
+import com.nqt.common_starter.util.PageUtil;
+import com.nqt.identity_service.constant.Role;
+import com.nqt.identity_service.constant.UserStatus;
+import com.nqt.identity_service.dto.request.user.ClientRequest;
+import com.nqt.identity_service.dto.request.user.ExpertRequest;
+import com.nqt.identity_service.dto.request.user.UserFilterRequest;
+import com.nqt.identity_service.dto.response.UserResponse;
+import com.nqt.identity_service.entity.Skill;
+import com.nqt.identity_service.entity.User;
+import com.nqt.identity_service.mapper.UserMapper;
+import com.nqt.identity_service.repository.SkillRepository;
+import com.nqt.identity_service.repository.UserRepository;
+import com.nqt.identity_service.service.impl.IUser;
+import com.nqt.identity_service.specification.UserSpecification;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.query.SortDirection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
+public class UserService implements IUser {
+    UserRepository userRepository;
+    UserMapper userMapper;
+    SkillRepository skillRepo;
+
+
+    @Override
+    public UserResponse getCurrentUser() {
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
+    private User getCurrentUserInfo() {
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        return userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
+    }
+
+    @Override
+    public PageResponse<UserResponse> getAllUsers(UserFilterRequest request) {
+        Pageable pageable = PageUtil.createPageable(request);
+
+        Specification<User> spec = UserSpecification.filter(request);
+
+
+        Page<UserResponse> page = userRepository.findAll(spec, pageable)
+                .map(user -> {
+                    UserResponse response = userMapper.toResponse(user);
+                    response.setId(user.getId());
+                    return response;
+                });
+
+        return PageResponse.fromPage(page);
+    }
+
+    @Override
+    public UserResponse getUserByCode(String code) {
+        User user = userRepository.findByCode(code)
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
+
+
+
+    @Override
+    @Transactional
+    public UserResponse updateClient(ClientRequest request) {
+
+        User currentUser = getCurrentUserInfo();
+        if (currentUser.getRole() != Role.CLIENT) {
+            throw new GlobalException(ErrorCode.INVALID_KEY.getCode(),ErrorCode.INVALID_KEY.getMessage() );
+        }
+        userMapper.updateUserFromClientRequest(request, currentUser);
+        return userMapper.toResponse(userRepository.save(currentUser));
+    }
+
+    @Override
+    public UserResponse updateExpert(ExpertRequest request) {
+
+        User currentUser = getCurrentUserInfo();
+        if (currentUser.getRole() != Role.EXPERT) {
+            throw new GlobalException(ErrorCode.INVALID_KEY.getCode(),ErrorCode.INVALID_KEY.getMessage() );
+        }
+        userMapper.updateUserFromExpertRequest(request, currentUser);
+        if (request.getSkillIds() != null) {
+            Set<Skill> skills = new HashSet<>(
+                    skillRepo.findAllById(request.getSkillIds())
+            );
+            currentUser.getExpertProfile().setSkills(skills);
+        }
+        return userMapper.toResponse(userRepository.save(currentUser));
+    }
+
+    @Override
+    @Transactional
+    public void changeStatus(String code, UserStatus status) {
+        User user = userRepository.findByCode(code)
+                .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
+
+        user.setStatus(status);
+
+        userRepository.save(user);
+    }
+
+
+}

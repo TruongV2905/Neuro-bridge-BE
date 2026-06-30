@@ -5,23 +5,16 @@ services:
     image: postgres:15
     container_name: postgres-db
     environment:
+      TZ: Asia/Ho_Chi_Minh
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data-v2:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - microservice-network
-    entrypoint: [
-      "bash", "-c",
-      "exec docker-entrypoint.sh postgres & \
-           until pg_isready -U postgres; do sleep 1; done; \
-           psql -U postgres -c 'CREATE DATABASE identity;' || true; \
-           psql -U postgres -c 'CREATE DATABASE notification;' || true; \
-           wait"
-    ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -59,6 +52,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-cache
+    command: redis-server --requirepass 12345678
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "6379:6379"
     networks:
@@ -86,35 +82,41 @@ services:
     depends_on:
       - postgres
       - discovery
+      - redis
     ports:
       - "4561:4561"
+      - "9090:9090"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       APP_SHARED-SECRET: ${SHARED_SECRET}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: 12345678
     networks:
       - microservice-network
 
-  # 3. Cập nhật Notification Service
-  notification-service:
+  workspace-service:
     build:
-      context: ./notification-service
+      context: ./workspace-service
       dockerfile: Dockerfile
-    container_name: notification-service
+    container_name: workspace-service
     env_file: .env
     depends_on:
       - postgres
-      - kafka
+      - redis
       - discovery
     ports:
       - "8083:8083"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PASSWORD: 12345678
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
@@ -125,6 +127,7 @@ services:
       context: ./api-gateway
       dockerfile: Dockerfile
     container_name: api-gateway
+    env_file: .env
     depends_on:
       - discovery
       - identity-service
@@ -132,8 +135,10 @@ services:
     ports:
       - "8080:8080"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_SERVER: http://discovery:8761/eureka/
+      APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 
@@ -142,5 +147,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data: # Đổi mysql-data -> postgres-data
+  postgres-data-v2:
     driver: local

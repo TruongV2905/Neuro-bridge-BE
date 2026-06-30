@@ -1,0 +1,57 @@
+package com.nqt.notification_service.enums;
+
+import com.nqt.common_starter.dto.event.NotificationEvent;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+import java.util.function.Function;
+
+@Getter
+@RequiredArgsConstructor
+public enum NotificationTemplate {
+
+    PACKAGE_SUBMITTED(
+            "Gói bàn giao mới",
+            e -> String.format("%s đã nộp gói bàn giao v%s",
+                    e.getSenderName(), e.getResourceVersion())
+    ),
+    PACKAGE_RESUBMITTED(
+            "Gói bàn giao đã được nộp lại",
+            e -> String.format("%s đã nộp lại gói bàn giao v%s",
+                    e.getSenderName(), e.getResourceVersion())
+    ),
+    PACKAGE_APPROVED(
+            "Gói bàn giao được chấp thuận ✓",
+            e -> String.format("%s đã chấp thuận gói bàn giao v%s. " +
+                            "Tiền trong ví chung đã được giải phóng vào tài khoản của bạn.",
+                    e.getSenderName(), e.getResourceVersion())
+    ),
+    PACKAGE_REJECTED(
+            "Gói bàn giao bị từ chối",
+            e -> String.format("%s đã từ chối gói bàn giao v%s: %s",
+                    e.getSenderName(), e.getResourceVersion(), e.getFeedback())
+    ),
+    WORKSPACE_INVITED(
+            "Bạn đã được thêm vào Workspace",
+            e -> "Neural Bridge đã tạo Workspace mới cho dự án của bạn. Hãy bắt đầu cộng tác!"
+    ),
+    UNKNOWN(
+            "Thông báo mới",
+            e -> "Có sự kiện mới trong hệ thống"
+    );
+
+    private final String title;
+    private final Function<NotificationEvent, String> messageBuilder;
+
+    public String buildMessage(NotificationEvent event) {
+        return messageBuilder.apply(event);
+    }
+
+    public static NotificationTemplate fromEventType(String eventType) {
+        try {
+            return valueOf(eventType);
+        } catch (IllegalArgumentException e) {
+            return UNKNOWN;
+        }
+    }
+}

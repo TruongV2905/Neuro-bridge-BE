@@ -13,15 +13,19 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class FeignTokenInterceptor implements RequestInterceptor {
     @Override
     public void apply(RequestTemplate template) {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+
+        ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
 
         if (attributes != null) {
             HttpServletRequest request = attributes.getRequest();
 
+            // ✅ phải relay đủ bộ header mà Gateway đã ký
             String[] headersToRelay = {
                     "X-User-Id",
-                    "X-User-Roles",
-                    "X-User-Permissions",
+                    "X-User-Role",
+                    "X-Timestamp",
+                    "X-Request-Id",
                     "X-Signature"
             };
 
@@ -29,10 +33,10 @@ public class FeignTokenInterceptor implements RequestInterceptor {
                 String value = request.getHeader(header);
                 if (value != null) {
                     template.header(header, value);
-                    // Log debug để kiểm tra headers đã được relay thành công chưa
                     log.debug("Relaying header {}: {}", header, value);
                 }
             }
+
         } else {
             log.warn("No RequestAttributes found. Headers will not be relayed to Feign request.");
         }

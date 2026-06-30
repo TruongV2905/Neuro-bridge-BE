@@ -1,0 +1,77 @@
+package com.nqt.identity_service.controller;
+
+import com.nqt.common_starter.dto.response.APIResponse;
+import com.nqt.identity_service.dto.request.CertificateRequest;
+import com.nqt.identity_service.dto.response.CertificateResponse;
+import com.nqt.identity_service.service.CertificateService;
+import jakarta.validation.Valid;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@RequestMapping("/certificate")
+@PreAuthorize("hasRole('EXPERT') or hasRole('ADMIN')")
+public class CertificateController {
+    CertificateService certificateService;
+
+    @PostMapping
+    public ResponseEntity<APIResponse<CertificateResponse>> createCertificate(
+            @Valid @RequestBody CertificateRequest request
+    ) {
+        return ResponseEntity.status(201).body(
+                APIResponse.response(201, "Create certificate successfully", certificateService.createCertificate(request))
+        );
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<APIResponse<List<CertificateResponse>>> getAllCertificates() {
+        return ResponseEntity.ok(
+                APIResponse.response(200, "Get certificates successfully", certificateService.getAllCertificates())
+        );
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<APIResponse<CertificateResponse>> getCertificateById(@PathVariable UUID id) {
+        return ResponseEntity.ok(
+                APIResponse.response(200, "Get certificate successfully", certificateService.getCertificateById(id))
+        );
+    }
+
+    @GetMapping("/expert/{code}")
+    public ResponseEntity<APIResponse<List<CertificateResponse>>> getCertificatesByExpertCode(
+            @PathVariable String code
+    ) {
+        return ResponseEntity.ok(
+                APIResponse.response(200, "Get certificates successfully", certificateService.getAllCertificatesByExpertCode(code))
+        );
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<APIResponse<CertificateResponse>> updateCertificate(
+            @PathVariable UUID id,
+            @Valid @RequestBody CertificateRequest request
+    ) {
+        return ResponseEntity.ok(
+                APIResponse.response(200, "Update certificate successfully", certificateService.updateCertificate(id, request))
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<APIResponse<String>> deleteCertificate(@PathVariable UUID id) {
+        certificateService.deleteCertificate(id);
+
+        return ResponseEntity.ok(
+                APIResponse.response(200, "Delete certificate successfully", null)
+        );
+    }
+}

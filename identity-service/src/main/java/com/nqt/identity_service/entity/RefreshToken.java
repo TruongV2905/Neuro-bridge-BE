@@ -3,24 +3,27 @@ package com.nqt.identity_service.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.TimeToLive;
 
+import java.io.Serializable;
 import java.time.Instant;
 
+@RedisHash("refreshToken") // key prefix trong Redis
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Entity
-public class RefreshToken {
+public class RefreshToken  implements Serializable {
     @Id
     String token;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    User user;
-
+    String UserId;
     Instant issuedAt;
-    Instant expiryTime;
+    boolean isRevoked;
+    @TimeToLive
+    Long ttl;
 }

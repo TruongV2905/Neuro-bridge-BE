@@ -1,6 +1,7 @@
 package com.nqt.identity_service.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.nqt.identity_service.constant.Role;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -15,6 +16,5 @@ import java.util.List;
 public class IntrospectResponse {
     boolean valid;
     String userId;
-    List<String> roles;
-    List<String> permissions;
+    String role;
 }

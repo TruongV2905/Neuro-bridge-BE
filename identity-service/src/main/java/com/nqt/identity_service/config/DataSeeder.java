@@ -1,10 +1,9 @@
 package com.nqt.identity_service.config;
 
 import com.nqt.common_starter.exception.GlobalException;
+import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.constant.UserStatus;
-import com.nqt.identity_service.entity.Role;
 import com.nqt.identity_service.entity.User;
-import com.nqt.identity_service.repository.RoleRepository;
 import com.nqt.identity_service.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -25,31 +24,10 @@ import java.util.Set;
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
     UserRepository userRepository;
-    RoleRepository roleRepository;
 
     @Override
     public void run(String... args) throws Exception {
-        seedCreateRoles();
         seedCreateAdminUser();
-    }
-    private void seedCreateRoles(){
-        // Implement logic to create roles if not exists
-        if(roleRepository.count() > 0){
-            return;
-        }
-        roleRepository.saveAll(
-                java.util.List.of(
-                        com.nqt.identity_service.entity.Role.builder()
-                                .name("USER")
-                                .description("Default role for normal users")
-                                .build(),
-                        com.nqt.identity_service.entity.Role.builder()
-                                .name("ADMIN")
-                                .description("Administrator role with full permissions")
-                                .build()
-                )
-        );
-        log.info("Seeded roles!");
     }
 
 
@@ -59,14 +37,12 @@ public class DataSeeder implements CommandLineRunner {
         if (userRepository.existsByEmail("admin@gmail.com")) {
             return;
         }
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleRepository.findByName("ADMIN").orElseThrow(() -> new GlobalException("Admin role not found")));
 
         User admin =
                 User.builder()
                         .email("admin@gmail.com")
                         .password(passwordEncoder.encode("Admin@123"))
-                        .roles(roles)
+                        .role(Role.ADMIN)
                         .status(UserStatus.ACTIVE)
                         .createdAt(LocalDateTime.now())
                         .build();

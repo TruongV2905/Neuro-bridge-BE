@@ -29,13 +29,10 @@ public class EnumValidatorClass implements ConstraintValidator<EnumValidator, Ob
 
     if (matched) return true;
 
-    // Nếu không khớp, tạo message chứa danh sách enum
-    String allowedValues =
-        String.join(", ", Arrays.stream(enumClass.getEnumConstants()).map(Enum::name).toList());
 
     context.disableDefaultConstraintViolation();
     context
-        .buildConstraintViolationWithTemplate(message + ". Allowed values: [" + allowedValues + "]")
+        .buildConstraintViolationWithTemplate(message)
         .addConstraintViolation();
 
     return false;
