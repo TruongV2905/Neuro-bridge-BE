@@ -1,4 +1,4 @@
-debug: true
+﻿debug: true
 server:
   port: 8086
 
@@ -8,6 +8,7 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration
   application:
     name: notification-service
   kafka:
@@ -40,6 +41,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -58,6 +60,11 @@ eureka:
       defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
+  valid-duration: 3600 # in second
+  refreshable-duration: 36000 # in seconds
+  refresh-duration: 30 # in minutes
 
 app:
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
