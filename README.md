@@ -19,64 +19,79 @@ Khi dự án phình to và bạn cần tạo thêm một Microservice mới (ví
         <module>api-gateway</module>
         <module>payment-service</module> </modules> (ví dụ tạo thêm payment service)
 ```
-### Bước 2: Cập nhật script entrypoint của Postgres để tự sinh thêm vỏ DB
-Mở file docker-compose.yml, tìm đến service postgres. Tại đoạn script bash, chèn thêm một dòng lệnh psql để tự động tạo vỏ database trống cho service mới ngay trước chữ wait:
+### Bước 2: Kế thừa nền tảng Security từ common-starter
+Để đảm bảo service mới được bảo vệ ngay lập tức bằng chữ ký Gateway và cơ chế Token JWT, hãy mở file pom.xml của service mới lên và khai báo dependency gọi đến module dùng chung:
 ```xml
-entrypoint: [
-      "bash", "-c",
-      "exec docker-entrypoint.sh postgres & \
-           until pg_isready -U postgres; do sleep 1; done; \
-           psql -U postgres -c 'CREATE DATABASE identity;' || true; \
-           psql -U postgres -c 'CREATE DATABASE notification;' || true; \
-           psql -U postgres -c 'CREATE DATABASE payment;' || true; \  # 👈 CHÈN THÊM DÒNG NÀY ĐỂ ĐẺ DB TỰ ĐỘNG (ví dụ tạo thêm payment service)
-           wait"
-    ]
+<dependency>
+    <groupId>com.nqt</groupId>
+    <artifactId>common-starter</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+</dependency>
 ```
-### Bước 3: Khai báo khối container cho Service mới trong docker-compose.yml
-Kéo xuống dưới cùng của file compose, định nghĩa service mới bằng cách copy và chỉnh sửa lại tên folder (context) cũng như cổng (ports) tương ứng:
+### Bước 3: Cấu hình Endpoint công khai tại application.yml nội bộ
+Mở file application.yml của service mới ra, cấu hình cổng chạy, định danh tên ứng dụng lên Eureka (bắt buộc phải giữ đuôi -service), và mở cổng cho Swagger UI bằng cách khai báo thụt lề chuẩn dưới nhánh app.security:
 ```xml
-payment-service:
-    build:
-      context: ./payment-service  # Thư mục chứa source code của service mới (ví dụ tạo thêm payment service)
-      dockerfile: Dockerfile
-    container_name: payment-service
-    env_file: .env
-    depends_on:
-      - postgres
-      - discovery
-    ports:
-      - "8084:8084"               # Port chạy ngoài máy thật của service mới
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_HOST: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
-      APP_SHARED-SECRET: ${SHARED_SECRET}
-    networks:
-      - microservice-network
+server:
+        port: 8083 # Cổng chạy nội bộ
+
+        spring:
+        application:
+        name: workspace-service # Tên định danh viết thường, có đuôi -service
+
+        app:
+        shared-secret: ${SHARED_SECRET}
+        security:
+        public-endpoints:
+        - "/v3/api-docs/**"   # Mở đường dẫn để API Gateway tự động quét tài liệu Swagger
+        - "/swagger-ui/**"
 ```
-### Bước 4: Cấu hình định tuyến Route trên API Gateway
-Mở file application.yml nội bộ của dự án api-gateway và bổ sung thêm thẻ route để Gateway biết đường dẫn request tới service mới:
+### Bước 4: Cấu hình nạp vỏ Database tự động qua init.sql
+Hệ thống sử dụng cơ chế ánh xạ Volume thông minh thay vì can thiệp script entrypoint thô của Postgres. Bạn chỉ cần mở file init.sql ở thư mục gốc của dự án ra và thêm lệnh tạo database trống cho service mới xuống cuối file:
 ```xml
-YAML
-spring:
-  cloud:
-    gateway:
-      routes:
-        # ... các routes cũ giữ nguyên
-        - id: payment-service
-          uri: lb://payment-service
-          predicates:
-            - Path=/payment/**
-          filters:
-            - StripPrefix=1
+CREATE DATABASE identity;
+
+-- Thêm dòng này cho service mới (Ví dụ: workspace-service)
+CREATE DATABASE workspace;
 ```
-### Bước 5:
-  - Chạy lệnh đóng gói lại toàn bộ: mvn clean package -DskipTests
-  - Chạy lệnh hạ và nâng Docker (xóa volume cũ): docker-compose down -v rồi docker-compose up -d --build
+### Bước 5:Khai báo khối container cho Service mới trong docker-compose.yml
+Kéo xuống dưới cùng của file compose, định nghĩa service mới. Hệ thống sử dụng cơ chế Dynamic Routing (Định tuyến động) của API Gateway kết hợp Eureka, do đó BẠN TUYỆT ĐỐI KHÔNG CẦN cấu hình thêm bất kỳ dòng routes: thủ công nào trong file cấu hình của api-gateway.
+```xml
+workspace-service:
+        build:
+        context: ./workspace-service  # Đường dẫn đến thư mục chứa source code service mới
+        dockerfile: Dockerfile
+        container_name: workspace-service
+        env_file: .env
+        depends_on:
+        - postgres
+        - redis
+        - discovery
+        ports:
+        - "8083:8083"                 # Ánh xạ cổng ngoài máy thật (Hãy đổi cổng ngoài nếu bị trùng)
+        environment:
+        SPRING_PROFILES_ACTIVE: docker
+        DB_HOST: postgres
+        DB_PASSWORD: ${DB_PASSWORD}
+        REDIS_HOST: redis
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+        APP_SHARED-SECRET: ${SHARED_SECRET}
+        networks:
+        - microservice-network
+```
+### Bước 6: Triển khai nạp mã nguồn và làm sạch tài nguyên
+Mở terminal tại thư mục gốc chứa file dự án tổng và thực thi chuỗi lệnh sau:
+```xml
+mvn clean package -DskipTests
+```
 
+```xml
+docker compose down -v
+```
 
-
+```xml
+docker compose up -d --build
+```
 
 
 ## 🛠️ PHẦN 2: Hướng dẫn dành cho ĐỒNG ĐỘI (Khi CLONE code về)

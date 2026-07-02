@@ -1,0 +1,75 @@
+server:
+  port: 8083
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: workspace-service
+  datasource:
+#    url: jdbc:postgresql://${DB_HOST:localhost}:5432/workspace
+    url: jdbc:postgresql://localhost:5432/workspace
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  threads:
+    virtual:
+      enabled: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            # Feign sẽ tự động dùng Thread của Virtual Threads
+            loggerLevel: BASIC
+  main:
+    allow-circular-references: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+
+  #Redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:12345678}
+      database: ${REDIS_DATABASE:0}
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
+  valid-duration: 3600 # in second
+  refreshable-duration: 36000 # in seconds
+  refresh-duration: 30 # in minutes
+app:
+  shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
+  security:
+    public-endpoints:
+      - "/auth/**"
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/public/**"
+
+# gRPC client configuration for calling identity-service
+grpc:
+  client:
+    identity-service:
+      address: static://localhost:9091
+      negotiation-type: plaintext

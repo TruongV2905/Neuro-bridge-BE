@@ -1,32 +1,41 @@
 package com.nqt.notification_service.controller;
 
-import com.nqt.notification_service.dto.EmailRequest;
-import com.nqt.notification_service.service.EmailService;
+import com.nqt.notification_service.dto.response.NotificationResponse;
+import com.nqt.notification_service.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.UUID;
+
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
 
-    private final EmailService emailService;
+    private final NotificationService notificationService;
 
-    @PostMapping("/email/simple")
-    public ResponseEntity<String> sendSimpleEmail(@RequestBody EmailRequest request) {
-        emailService.sendSimpleEmail(request);
-        return ResponseEntity.ok("Email sent successfully");
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<NotificationResponse>> getNotifications(
+            @PathVariable UUID userId) {
+        return ResponseEntity.ok(notificationService.getNotifications(userId));
     }
 
-    @PostMapping("/email/html")
-    public ResponseEntity<String> sendHtmlEmail(@RequestBody EmailRequest request) {
-        emailService.sendHtmlEmail(request);
-        return ResponseEntity.ok("HTML email sent successfully");
+    @GetMapping("/user/{userId}/unread-count")
+    public ResponseEntity<Long> countUnread(@PathVariable UUID userId) {
+        return ResponseEntity.ok(notificationService.countUnread(userId));
     }
 
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Notification service is running");
+    @PutMapping("/user/{userId}/read-all")
+    public ResponseEntity<Void> markAllAsRead(@PathVariable UUID userId) {
+        notificationService.markAllAsRead(userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{notificationId}/read")
+    public ResponseEntity<Void> markAsRead(@PathVariable UUID notificationId) {
+        notificationService.markAsRead(notificationId);
+        return ResponseEntity.ok().build();
     }
 }

@@ -1,51 +1,70 @@
-﻿server:
-  port: 8083
+﻿debug: true
+server:
+  port: 8086
 
 spring:
   main:
-    allow-bean-definition-overriding: true
+    web-application-type: servlet
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration
   application:
     name: notification-service
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:your-email@gmail.com}
-    password: ${MAIL_PASSWORD:your-app-password}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
     consumer:
-      group-id: notification-service-group
+      group-id: notification-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:12345678}
+      client-type: jedis
+  cache:
+    type: none
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/notification?createDatabaseIfNotExist=true
-    username: postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/notification}
+    username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
-      # Chỉ định rõ Dialect cho PostgreSQL
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
-      properties:
-        hibernate:
-          jdbc:
-            lob:
-              non_contextual_creation: true
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  # Group riêng cho notification-service (để API Gateway aggregate đúng)
+  group-configs:
+    - group: notification-service
+      paths-to-match: /api/**
 
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
+  valid-duration: 3600 # in second
+  refreshable-duration: 36000 # in seconds
+  refresh-duration: 30 # in minutes
 
 # notification-service is pure REST + Kafka. Disable gRPC server (and any
 # client) so the auto-config brought in by common-starter does not start
@@ -57,12 +76,13 @@ grpc:
     enabled: false
 
 app:
+  shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
   security:
     public-endpoints:
-      - "/api/notifications/health"
-      - "/v3/api-docs/**"
-      - "/swagger-ui/**"
-  shared-secret: ${SHARED_SECRET:justi_secret_key_2026}
-  notification:
-    from-email: ${FROM_EMAIL:noreply@yourapp.com}
-    from-name: ${FROM_NAME:Your App}
+      - "/ws/**"
+      - "/actuator/**"
+      - "/api/v1/notifications/**"
+      - "/v3/api-docs/**"       # ← thêm
+      - "/v3/api-docs"          # ← thêm
+      - "/swagger-ui/**"        # ← thêm
+      - "/swagger-ui.html"
