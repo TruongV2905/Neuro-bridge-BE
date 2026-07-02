@@ -16,5 +16,6 @@
         <module>notification-service</module>
         <module>api-gateway</module>
         <module>jobPost-service</module>
+        <module>payment-service</module>
     </modules>
 </project>
