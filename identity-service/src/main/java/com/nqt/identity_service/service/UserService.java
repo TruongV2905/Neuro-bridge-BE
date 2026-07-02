@@ -27,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,25 +48,59 @@ public class UserService implements IUser {
 
     @Override
     public UserResponse getCurrentUser() {
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
+        String userId = getCurrentUserId();
 
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
         return userMapper.toResponse(user);
     }
     private User getCurrentUserInfo() {
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
+        String userId = getCurrentUserId();
 
         return userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * Resolves the current authenticated user's id from the Spring Security
+     * context. Throws a clean {@link GlobalException} (HTTP 401) when there
+     * is no authentication instead of NPE — this happens on:
+     * <ul>
+     *   <li>background tasks / Kafka listeners / @Scheduled jobs,</li>
+     *   <li>gRPC calls that did not carry a valid JWT (the net.devh
+     *       interceptor will have failed the call before reaching us, but
+     *       we still defend against misconfiguration),</li>
+     *   <li>internal service-to-service invocations where the JWT was not
+     *       propagated.</li>
+     * </ul>
+     */
+    private String getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            log.warn("No Authentication found in SecurityContext — throwing UNAUTHENTICATED");
+            throw new GlobalException(
+                    ErrorCode.UNAUTHENTICATED.getCode(),
+                    ErrorCode.UNAUTHENTICATED.getMessage());
+        }
+        log.info("Authentication in context: class={}, name='{}', principal={}, isAuthenticated={}",
+                authentication.getClass().getSimpleName(),
+                authentication.getName(),
+                authentication.getPrincipal(),
+                authentication.isAuthenticated());
+        if (authentication.getName() == null || authentication.getName().isBlank()) {
+            log.warn("Authentication.getName() is null/blank — throwing UNAUTHENTICATED");
+            throw new GlobalException(
+                    ErrorCode.UNAUTHENTICATED.getCode(),
+                    ErrorCode.UNAUTHENTICATED.getMessage());
+        }
+        return authentication.getName();
+    }
+
     @Override
     public PageResponse<UserResponse> getAllUsers(UserFilterRequest request) {
+
+        //vaidlation
+        User current = getCurrentUserInfo();
         Pageable pageable = PageUtil.createPageable(request);
 
         Specification<User> spec = UserSpecification.filter(request);
@@ -74,7 +109,14 @@ public class UserService implements IUser {
         Page<UserResponse> page = userRepository.findAll(spec, pageable)
                 .map(user -> {
                     UserResponse response = userMapper.toResponse(user);
-                    response.setId(user.getId());
+
+                    if (current.getRole() == Role.ADMIN) {
+                        response.setId(user.getId());
+                        response.setEmail(user.getEmail());
+                        response.setPhone(user.getPhone());
+                        response.setAddress(user.getAddress());
+                        response.setDateOfBirth(user.getDateOfBirth());
+                    }
                     return response;
                 });
 

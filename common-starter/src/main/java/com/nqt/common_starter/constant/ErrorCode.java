@@ -15,12 +15,11 @@ public enum ErrorCode {
     INVALID_SIZE("must be between 1 and 50", HttpStatus.BAD_REQUEST),
     INVALID_FORMAT("invalid format", HttpStatus.BAD_REQUEST),
     FIELDS_EMPTY("Black or missing fie;ds", HttpStatus.BAD_REQUEST),
-
     //====================SYSTEM===============================
     USER_NOT_EXISTED("User does not exist", HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED("Email already exists", HttpStatus.BAD_REQUEST),
     PHONE_EXISTED("Phone number already exists", HttpStatus.BAD_REQUEST),
-    INVALID_KEY("Uncategorized error", HttpStatus.BAD_REQUEST),
+    INVALID_KEY("invalid key", HttpStatus.BAD_REQUEST),
     EMPTY_TOKEN("Empty token", HttpStatus.UNAUTHORIZED),
     EXPIRED_TOKEN("Expired token!", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("Invalid token!", HttpStatus.UNAUTHORIZED),
@@ -38,6 +37,9 @@ public enum ErrorCode {
     INVALID_DEPOSIT("Deposit is invalid", HttpStatus.BAD_REQUEST),
     INVALID_ENUM("Value is not in allowed enum", HttpStatus.BAD_REQUEST),
     NOT_FOUND("Not found!", HttpStatus.NOT_FOUND),
+    FILE_EMPTY("File is empty!", HttpStatus.BAD_REQUEST),
+    IS_EXISTED("Already exists!", HttpStatus.BAD_REQUEST),
+    FILE_READ_ERROR("Error reading file!", HttpStatus.INTERNAL_SERVER_ERROR),
     ;
 
 

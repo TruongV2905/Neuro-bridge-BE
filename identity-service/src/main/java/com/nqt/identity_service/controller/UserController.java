@@ -24,19 +24,10 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     UserService userService;
 
-    @GetMapping("/current-user")
-    public ResponseEntity<APIResponse<UserResponse>> currentUser() {
-        return ResponseEntity.ok(
-                APIResponse.response(
-                        HttpStatus.OK.value(),
-                        "Current User",
-                        userService.getCurrentUser()
-                )
-        );
-    }
+
 
     @PostMapping("/filter")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<APIResponse<PageResponse<UserResponse>>> getAllUsers(
            @Valid @RequestBody UserFilterRequest request
     ) {
@@ -69,6 +60,7 @@ public class UserController {
         );
     }
     @PatchMapping("/{code}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<APIResponse<String>> changeStatus(
             @PathVariable String code,
             @RequestParam UserStatus status

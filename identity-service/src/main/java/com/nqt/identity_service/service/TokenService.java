@@ -93,19 +93,34 @@ public class TokenService {
 
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
+        String userId = user.getId().toString();
+        String role = user.getRole().name();
+
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .subject(user.getId().toString())
+                .subject(userId)
                 .issuer("nqt")
                 .audience("nqt-app")
                 .issueTime(new Date())
                 .expirationTime(new Date(
-                        Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
+                        Instant.now()
+                                .plus(VALID_DURATION, ChronoUnit.SECONDS)
+                                .toEpochMilli()
                 ))
                 .jwtID(UUID.randomUUID().toString())
-                .claim("scope", "ROLE_" + user.getRole().name())
+
+                // claim chính để common-starter đọc
+                .claim("userId", userId)
+                .claim("role", role)
+
+                // giữ scope để dùng cho Spring Security / permission nếu cần
+                .claim("scope", "ROLE_" + role)
+
                 .build();
 
-        JWSObject jwsObject = new JWSObject(header, new Payload(claims.toJSONObject()));
+        JWSObject jwsObject = new JWSObject(
+                header,
+                new Payload(claims.toJSONObject())
+        );
 
         try {
             jwsObject.sign(new MACSigner(keyBytes));

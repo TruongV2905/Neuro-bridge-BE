@@ -2,7 +2,7 @@
 
 services:
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: postgres-db
     environment:
       TZ: Asia/Ho_Chi_Minh
@@ -89,12 +89,10 @@ services:
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: redis
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
-      APP_SHARED-SECRET: ${SHARED_SECRET}
-      REDIS_HOST: redis
-      REDIS_PASSWORD: 12345678
     networks:
       - microservice-network
 
@@ -118,7 +116,6 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: 12345678
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
-      APP_SHARED-SECRET: ${SHARED_SECRET}
     networks:
       - microservice-network
 

@@ -1,18 +1,23 @@
 package com.nqt.identity_service.controller;
 
+import com.nqt.common_starter.dto.request.PageRequest;
 import com.nqt.common_starter.dto.response.APIResponse;
-import com.nqt.identity_service.dto.request.SkillRequest;
-import com.nqt.identity_service.dto.response.SkillResponse;
+import com.nqt.common_starter.dto.response.PageResponse;
+import com.nqt.identity_service.dto.request.skill.SkillForExpertRequest;
+import com.nqt.identity_service.dto.request.skill.SkillRequest;
+import com.nqt.identity_service.dto.response.skill.SkillResponse;
 import com.nqt.identity_service.service.SkillService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequiredArgsConstructor
@@ -30,12 +35,39 @@ public class SkillController {
         );
     }
 
-    @GetMapping
-    public ResponseEntity<APIResponse<List<SkillResponse>>> getAllSkills() {
-        return ResponseEntity.ok(
-                APIResponse.response(200,"Get skills successfully",skillService.getAllSkills())
+    @PostMapping(
+            value = "/import",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<APIResponse<Void>> createSkillsByFile(
+            @RequestParam("file") MultipartFile file
+    ) {
+        skillService.createSkillsByFile(file);
+
+        return ResponseEntity.status(201).body(
+                APIResponse.response(
+                        201,
+                        "Import skills successfully",
+                        null
+                )
         );
     }
+
+
+    @GetMapping("/user")
+    public ResponseEntity<APIResponse<PageResponse<SkillResponse>>> getAllSkills(@ModelAttribute PageRequest pageRequest) {
+        return ResponseEntity.ok(
+                APIResponse.response(200,"Get skills successfully",skillService.getAllSkills(pageRequest))
+        );
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<APIResponse<PageResponse<SkillResponse>>> getAllSkillsByAdmin(@ModelAttribute PageRequest pageRequest) {
+        return ResponseEntity.ok(
+                APIResponse.response(200,"Get skills successfully",skillService.getAllSkillsForAdmin(pageRequest))
+        );
+    }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<APIResponse<SkillResponse>> getSkillById(@PathVariable long id) {
@@ -60,9 +92,21 @@ public class SkillController {
         );
     }
 
+    @PutMapping("expert/{code}")
+    public ResponseEntity<APIResponse<SkillResponse>> updateSkill(
+            @PathVariable String code,
+            @Valid @RequestBody SkillForExpertRequest request
+            ) {
+        skillService.updateSkillForExpert(code, request);
+        return ResponseEntity.ok(
+                APIResponse.response(200,"Update skill successfully",
+                        null));
+    }
+
+
     @DeleteMapping("/{id}")
     public ResponseEntity<APIResponse<String>> deleteSkill(@PathVariable long id) {
-        skillService.deleteSkill(id);
+        skillService.toggleSkill(id);
 
         return ResponseEntity.ok(
                 APIResponse.response(200,"Delete skill successfully",null)

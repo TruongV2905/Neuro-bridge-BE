@@ -3,6 +3,7 @@ package com.nqt.identity_service.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -20,16 +21,20 @@ public class Skill {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "skill_id")
-    long id;
+    Long id;
 
     String skillName;
+
+    @Column(columnDefinition = "TEXT")
     String skillDescription;
-    @Builder.Default
+
+    @CreationTimestamp
     @Column(updatable = false)
-    LocalDateTime createdAt = LocalDateTime.now();
+    LocalDateTime createdAt;
 
 
-    boolean isDeleted;
+    @Column(name = "is_deleted")
+    boolean deleted;
 
     @ManyToMany(mappedBy = "skills")
     @Builder.Default

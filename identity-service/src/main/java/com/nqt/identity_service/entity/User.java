@@ -58,6 +58,7 @@ public class User implements UserDetails {
     String avatarUrl;
 
     @Enumerated(EnumType.STRING)
+    @EnumValidator(enumClass = Role.class, message = "INVALID_ENUM")
     Role role;
 
     @Column(unique = true)

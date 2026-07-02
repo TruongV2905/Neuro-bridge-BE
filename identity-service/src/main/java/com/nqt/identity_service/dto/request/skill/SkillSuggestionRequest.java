@@ -1,4 +1,4 @@
-package com.nqt.identity_service.dto.request;
+package com.nqt.identity_service.dto.request.skill;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -9,9 +9,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SkillRequest {
-    @NotBlank(message = "FIELD_REQUIRED")
-    String skillName;
-    @NotBlank(message = "FIELD_REQUIRED")
-    String skillDescription;
+public class SkillSuggestionRequest {
+    String title;
+    String description;
 }

@@ -66,6 +66,15 @@ jwt:
   refreshable-duration: 36000 # in seconds
   refresh-duration: 30 # in minutes
 
+# notification-service is pure REST + Kafka. Disable gRPC server (and any
+# client) so the auto-config brought in by common-starter does not start
+# a ShadedNettyGrpcServer on this service.
+grpc:
+  server:
+    enabled: false
+  client:
+    enabled: false
+
 app:
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
   security:

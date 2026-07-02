@@ -36,6 +36,7 @@ spring:
               - POST
               - PUT
               - DELETE
+              - PATCH
               - OPTIONS
               - PATCH
             allowedHeaders: "*"
@@ -49,9 +50,10 @@ springdoc:
   swagger-ui:
     enabled: true
 app:
-  shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="
+  shared-secret: ${SHARED_SECRET:g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w==}
   security:
     public-endpoints:
       - "/identity/auth/**"
       - "/notification/api/notifications/health"
+      - "/identity/skill/user"
   api-prefix: ${API_PREFIX:/api/}

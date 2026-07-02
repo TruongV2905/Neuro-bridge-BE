@@ -1,11 +1,11 @@
 package com.nqt.common_starter.exception;
 
-
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.APIResponse;
-import feign.FeignException;
+import com.nqt.common_starter.validator.EnumValidator;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +15,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.lang.reflect.Field;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @ControllerAdvice
 @Slf4j
@@ -27,23 +29,47 @@ public class GlobalExceptionHandler {
         List<String> errors = exception
                 .getBindingResult()
                 .getFieldErrors()
-                .stream() //array method
+                .stream()
                 .map(error -> {
-                    String enumKey = error.getDefaultMessage(); //VD: FIELD_REQUIRED
+                    String enumKey = error.getDefaultMessage();
+
                     ErrorCode errorCode;
                     try {
-                        errorCode = ErrorCode.valueOf(enumKey);  //lấy mã lỗi trùng với enumKey
-                    }catch (IllegalArgumentException e){
+                        errorCode = ErrorCode.valueOf(enumKey);
+                    } catch (IllegalArgumentException e) {
                         errorCode = ErrorCode.FIELD_REQUIRED;
                     }
-                    return error.getField() + " " + errorCode.getMessage(); //VD name -> tên field + " " + message của error code -> name cannot be blank
-                }).toList();
-        //trả về FE bắt buộc phải dùng ResponseEntity
-        //badRequest() là mã lỗi 400
-        //APIResponse khuông mẫu trả về phía FE
-        //errors là tất cả những mã lỗi đã được chuyển đổi
 
-        return ResponseEntity.badRequest().body(APIResponse.response(400,"validation error",errors));
+                    String message = error.getField() + " " + errorCode.getMessage();
+
+                    if ("EnumValidator".equals(error.getCode())) {
+                        try {
+                            Field field = exception.getParameter()
+                                    .getParameterType()
+                                    .getDeclaredField(error.getField());
+
+                            EnumValidator enumValidator =
+                                    field.getAnnotation(EnumValidator.class);
+
+                            if (enumValidator != null) {
+                                String allowedValues = Arrays
+                                        .stream(enumValidator.enumClass().getEnumConstants())
+                                        .map(Enum::name)
+                                        .collect(Collectors.joining(", "));
+
+                                message += ". Allowed values: " + allowedValues;
+                            }
+                        } catch (NoSuchFieldException ignored) {
+                        }
+                    }
+
+                    return message;
+                })
+                .toList();
+
+        return ResponseEntity
+                .badRequest()
+                .body(APIResponse.response(400, "validation error", errors));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -92,68 +118,47 @@ public class GlobalExceptionHandler {
     }
 
 
-    @ExceptionHandler(FeignException.class)
-    public ResponseEntity<APIResponse<Object>> handleFeignException(FeignException ex) {
-        // 1. Lấy tên Service từ URL
-        String url = (ex.request() != null) ? ex.request().url() : "";
-        String serviceName = extractServiceName(url);
+    @ExceptionHandler(StatusRuntimeException.class)
+    public ResponseEntity<APIResponse<Object>> handleGrpcException(StatusRuntimeException ex) {
 
-        // 2. Lấy nội dung lỗi từ Service B
-        String content = ex.contentUTF8();
-        String downstreamMessage = extractMessage(content);
+        Status.Code grpcCode = ex.getStatus().getCode();
+        String grpcMessage = ex.getStatus().getDescription();
 
-        // 3. Lấy HTTP Status
-        int status = ex.status() > 0 ? ex.status() : 500;
+        int httpStatus = mapGrpcStatusToHttpStatus(grpcCode);
 
-        // 4. Build message chuyên nghiệp
-        String finalMessage = String.format("[%s]: %s", serviceName, downstreamMessage);
+        String finalMessage = "[GRPC-IDENTITY-SERVICE]: "
+                + (grpcMessage != null ? grpcMessage : "gRPC service error");
 
-        log.error("Feign Error | Status: {} | Service: {} | Content: {}", status, serviceName, content);
+        log.error(
+                "gRPC Error | gRPC Status: {} | HTTP Status: {} | Message: {}",
+                grpcCode,
+                httpStatus,
+                grpcMessage,
+                ex
+        );
 
         APIResponse<Object> body = APIResponse.builder()
-                .code(status)
+                .code(httpStatus)
                 .message(finalMessage)
                 .build();
 
-        return ResponseEntity.status(status).body(body);
+        return ResponseEntity.status(httpStatus).body(body);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<APIResponse<Object>> handleIllegalState(IllegalStateException exception) {
-        APIResponse<Object> apiResponse = new APIResponse<>();
-        apiResponse.setCode(409);
-        apiResponse.setMessage(exception.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
+    private int mapGrpcStatusToHttpStatus(Status.Code grpcCode) {
+        return switch (grpcCode) {
+            case OK -> 200;
+            case INVALID_ARGUMENT -> 400;
+            case UNAUTHENTICATED -> 401;
+            case PERMISSION_DENIED -> 403;
+            case NOT_FOUND -> 404;
+            case ALREADY_EXISTS -> 409;
+            case FAILED_PRECONDITION -> 400;
+            case UNAVAILABLE -> 503;
+            case DEADLINE_EXCEEDED -> 504;
+            default -> 500;
+        };
     }
 
-    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
-    public ResponseEntity<APIResponse<Object>> handleDataIntegrity(
-            org.springframework.dao.DataIntegrityViolationException exception) {
-        APIResponse<Object> apiResponse = new APIResponse<>();
-        apiResponse.setCode(409);
-        apiResponse.setMessage("Vi phạm ràng buộc dữ liệu: " + exception.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
-    }
 
-    private String extractMessage(String json) {
-        try {
-            JsonNode node = objectMapper.readTree(json);
-            // Ưu tiên lấy field "message", nếu không có thì lấy "error", không có nữa thì trả về cả cục
-            if (node.has("message")) return node.get("message").asText();
-            if (node.has("error")) return node.get("error").asText();
-            return node.toString();
-        } catch (Exception e) {
-            return json.isEmpty() ? "No detail message" : json;
-        }
-    }
-
-    private String extractServiceName(String url) {
-        if (url == null || url.isEmpty()) return "UNKNOWN";
-        try {
-            // Cắt chuỗi lấy host: http://demo-service/api -> DEMO-SERVICE
-            return url.split("/")[2].toUpperCase();
-        } catch (Exception e) {
-            return "EXTERNAL-SERVICE";
-        }
-    }
 }

@@ -6,7 +6,6 @@ import com.nqt.identity_service.dto.request.user.ClientRequest;
 import com.nqt.identity_service.dto.request.user.ExpertRequest;
 import com.nqt.identity_service.dto.request.user.UserFilterRequest;
 import com.nqt.identity_service.dto.response.UserResponse;
-import org.springframework.data.domain.Page;
 
 public interface IUser {
     UserResponse getCurrentUser();
@@ -14,7 +13,6 @@ public interface IUser {
     UserResponse getUserByCode(String code);
 
     PageResponse<UserResponse> getAllUsers(UserFilterRequest request);
-
 
     UserResponse updateClient(ClientRequest request);
 

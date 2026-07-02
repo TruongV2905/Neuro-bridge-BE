@@ -3,19 +3,8 @@ package com.nqt.identity_service;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.openfeign.EnableFeignClients;
-
-@EnableFeignClients
+@SpringBootApplication
 @EnableDiscoveryClient
-@SpringBootApplication(
-        scanBasePackages = {
-                "com.nqt.identity_service",
-                "com.nqt.common_starter"
-        },
-        exclude = {
-                net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration.class
-        }
-)
 public class IdentityServiceApplication {
 
 	public static void main(String[] args) {

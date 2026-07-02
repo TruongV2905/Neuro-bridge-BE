@@ -18,15 +18,12 @@
     <properties>
         <java.version>21</java.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
+
+
+        <!-- gRPC / Protobuf versions (updated to latest available) -->
         <grpc.springboot.version>3.1.0.RELEASE</grpc.springboot.version>
         <grpc.version>1.82.0</grpc.version>
-
-        <!-- Dùng cho protobuf-java runtime dependency -->
         <protobuf.version>4.35.1</protobuf.version>
-
-        <!-- Dùng RIÊNG cho protoc compiler binary, phải là version có publish .exe artifact -->
-        <protoc.version>3.25.1</protoc.version>
-
         <protoc.plugin.version>1.82.0</protoc.plugin.version>
         <protobuf.maven.plugin.version>0.6.1</protobuf.maven.plugin.version>
         <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
@@ -36,10 +33,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -52,10 +45,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -85,12 +74,20 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-
+        <!-- 	Read Doc	-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.1</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+
+        <!-- Nếu project vừa gRPC server vừa client -->
 
         <dependency>
             <groupId>net.devh</groupId>
@@ -142,6 +139,7 @@
                 <version>0.0.1-SNAPSHOT</version>
             </dependency>
 
+
             <!-- gRPC and Protobuf dependencies -->
             <dependency>
                 <groupId>net.devh</groupId>
@@ -178,6 +176,7 @@
                 <scope>import</scope>
             </dependency>
 
+
         </dependencies>
 
     </dependencyManagement>
@@ -187,7 +186,7 @@
             <extension>
                 <groupId>kr.motd.maven</groupId>
                 <artifactId>os-maven-plugin</artifactId>
-                <version>1.7.1</version>
+                <version>${os-maven-plugin.version}</version>
             </extension>
         </extensions>
         <plugins>
