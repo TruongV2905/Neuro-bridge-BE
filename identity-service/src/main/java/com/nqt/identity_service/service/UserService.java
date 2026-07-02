@@ -61,19 +61,7 @@ public class UserService implements IUser {
                 .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
     }
 
-    /**
-     * Resolves the current authenticated user's id from the Spring Security
-     * context. Throws a clean {@link GlobalException} (HTTP 401) when there
-     * is no authentication instead of NPE — this happens on:
-     * <ul>
-     *   <li>background tasks / Kafka listeners / @Scheduled jobs,</li>
-     *   <li>gRPC calls that did not carry a valid JWT (the net.devh
-     *       interceptor will have failed the call before reaching us, but
-     *       we still defend against misconfiguration),</li>
-     *   <li>internal service-to-service invocations where the JWT was not
-     *       propagated.</li>
-     * </ul>
-     */
+
     private String getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
@@ -130,6 +118,13 @@ public class UserService implements IUser {
         return userMapper.toResponse(user);
     }
 
+    @Override
+    public UserResponse getUserById(UUID id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new GlobalException("User not found"));
+
+        return userMapper.toResponse(user);
+    }
 
 
     @Override

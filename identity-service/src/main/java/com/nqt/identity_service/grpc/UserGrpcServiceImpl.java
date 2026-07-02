@@ -1,6 +1,7 @@
 package com.nqt.identity_service.grpc;
 
 import com.identity.grpc.GetCurrentUserRequest;
+import com.identity.grpc.UserRequest;
 import com.identity.grpc.UserResponse;
 import com.identity.grpc.UserServiceGrpc;
 import com.nqt.common_starter.exception.GlobalException;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
 
 import java.util.List;
+import java.util.UUID;
 
 @GrpcService
 @Slf4j
@@ -57,7 +59,48 @@ public class UserGrpcServiceImpl extends UserServiceGrpc.UserServiceImplBase {
             );
         }
     }
+    @Override
+    public void getUser(UserRequest request, StreamObserver<UserResponse> responseObserver) {
+        try {
+            UUID userId = UUID.fromString(request.getUserId());
 
+            com.nqt.identity_service.dto.response.UserResponse user =
+                    userService.getUserById(userId);
+
+            UserResponse response = toGrpcUserResponse(user);
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid user id when getting user via gRPC: {}", request.getUserId());
+
+            responseObserver.onError(
+                    Status.INVALID_ARGUMENT
+                            .withDescription("Invalid user id")
+                            .asRuntimeException()
+            );
+
+        } catch (GlobalException e) {
+            log.warn("Business error when getting user via gRPC: {}", e.getMessage());
+
+            responseObserver.onError(
+                    Status.NOT_FOUND
+                            .withDescription(e.getMessage())
+                            .asRuntimeException()
+            );
+
+        } catch (Exception e) {
+            log.error("Internal error when getting user via gRPC", e);
+
+            responseObserver.onError(
+                    Status.INTERNAL
+                            .withDescription("Failed to get user")
+                            .withCause(e)
+                            .asRuntimeException()
+            );
+        }
+    }
     private UserResponse toGrpcUserResponse(
             com.nqt.identity_service.dto.response.UserResponse user
     ) {
