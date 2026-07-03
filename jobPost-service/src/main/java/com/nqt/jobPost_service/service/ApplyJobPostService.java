@@ -88,10 +88,9 @@ public class ApplyJobPostService implements IApplyJobPost {
 
         if (proposal != null) {
             proposalResponse = proposalMapper.toResponse(proposal);
-
             ProposalUnlock proposalUnlock = proposal.getProposalUnlock();
-
             if (proposalUnlock != null) {
+                proposalResponse.setUnlockCost(proposalUnlock.getUnlockCost());
                 proposalUnlockResponse =
                         proposalUnlockService.getById(proposalUnlock.getId());
             }
@@ -99,7 +98,7 @@ public class ApplyJobPostService implements IApplyJobPost {
 
         return ApplyJobPostResponse.builder()
                 .expertApply(expertApplyResponse)
-                .proposalResponse(proposalResponse)
+                .proposal(proposalResponse)
                 .proposalUnlock(proposalUnlockResponse)
                 .build();
     }
