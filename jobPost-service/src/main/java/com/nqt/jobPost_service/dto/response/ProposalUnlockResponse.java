@@ -20,5 +20,4 @@ public class ProposalUnlockResponse {
     UUID id;
     LocalDateTime createdAt;
     String strategyDetail;
-    BigDecimal unlockCost;
 }

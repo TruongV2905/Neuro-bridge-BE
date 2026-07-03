@@ -24,7 +24,8 @@ public class Proposal {
     @Column(columnDefinition = "TEXT")
     String strategySummary;
 
-    boolean isLocked;
+    @Builder.Default
+    boolean isLocked = true;
 
     @OneToOne(mappedBy = "proposal")
     ExpertApply expertApply;

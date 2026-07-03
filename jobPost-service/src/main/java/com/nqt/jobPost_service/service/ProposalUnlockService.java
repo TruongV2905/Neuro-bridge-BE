@@ -6,6 +6,7 @@ import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.jobPost_service.dto.request.ProposalUnlockRequest;
 import com.nqt.jobPost_service.dto.response.ProposalUnlockResponse;
 import com.nqt.jobPost_service.entity.ExpertApply;
+import com.nqt.jobPost_service.entity.JobPost;
 import com.nqt.jobPost_service.entity.Proposal;
 import com.nqt.jobPost_service.entity.ProposalUnlock;
 import com.nqt.jobPost_service.mapper.ProposalUnlockMapper;
@@ -68,7 +69,9 @@ public class ProposalUnlockService implements IProposalUnlock {
                         "Proposal Unlock " + ErrorCode.NOT_FOUND.getMessage()
                 ));
 
-        validateGetProposalUnlock(userResponse.getCode(),proposalUnlock);
+        if(!validateGetProposalUnlock(userResponse.getCode(),proposalUnlock)){
+            return null;
+        }
 
         return proposalUnlockMapper.toResponse(proposalUnlock);
     }
@@ -87,51 +90,35 @@ public class ProposalUnlockService implements IProposalUnlock {
         return proposalUnlockMapper.toResponse(proposalUnlock);
     }
 
-    private void validateGetProposalUnlock(String code, ProposalUnlock proposalUnlock) {
-        if (proposalUnlock.getProposal() == null) {
-            throw new GlobalException(
-                    ErrorCode.NOT_FOUND.getCode(),
-                    "Proposal " + ErrorCode.NOT_FOUND.getMessage()
-            );
+    private boolean validateGetProposalUnlock(String code, ProposalUnlock proposalUnlock) {
+        if (code == null || proposalUnlock == null) {
+            return false;
         }
 
         Proposal proposal = proposalUnlock.getProposal();
-
-        if (!proposal.isLocked()) {
-            throw new GlobalException(
-                    ErrorCode.UNAUTHORIZED.getCode(),
-                    "Proposal is not locked"
-            );
-        }
-
-        if (proposal.getExpertApply() == null) {
-            throw new GlobalException(
-                    ErrorCode.NOT_FOUND.getCode(),
-                    "Expert Apply " + ErrorCode.NOT_FOUND.getMessage()
-            );
+        if (proposal == null) {
+            return false;
         }
 
         ExpertApply expertApply = proposal.getExpertApply();
-
-        if (expertApply.getJobPost() == null) {
-            throw new GlobalException(
-                    ErrorCode.NOT_FOUND.getCode(),
-                    "Job Post " + ErrorCode.NOT_FOUND.getMessage()
-            );
+        if (expertApply == null) {
+            return false;
         }
 
-        String creatorCode = expertApply.getJobPost().getCreatorCode();
-        String expertCode = expertApply.getExpertCode();
-
-        boolean isJobPostCreator = creatorCode.equals(code);
-        boolean isProposalCreator = expertCode.equals(code);
-
-        if (!isJobPostCreator && !isProposalCreator) {
-            throw new GlobalException(
-                    ErrorCode.UNAUTHORIZED.getCode(),
-                    "You don't have permission to access this proposal unlock"
-            );
+        JobPost jobPost = expertApply.getJobPost();
+        if (jobPost == null) {
+            return false;
         }
+
+        boolean isProposalCreator = code.equals(expertApply.getExpertCode());
+        if (isProposalCreator) {
+            return true;
+        }
+
+        boolean isJobPostCreator = code.equals(jobPost.getCreatorCode());
+
+        // Client chỉ được xem khi proposal đã unlock
+        return isJobPostCreator && !proposal.isLocked();
     }
 
     @Override
