@@ -61,6 +61,13 @@ public class SkillController {
         );
     }
 
+    @PostMapping("/by-list-ids")
+    public ResponseEntity<APIResponse<List<SkillResponse>>> getAllSkillsByIds(@RequestBody List<Long> skillIds) {
+        return ResponseEntity.ok(
+                APIResponse.response(200,"Get skills successfully",skillService.getSkillsByIds(skillIds))
+        );
+    }
+
     @GetMapping("/admin")
     public ResponseEntity<APIResponse<PageResponse<SkillResponse>>> getAllSkillsByAdmin(@ModelAttribute PageRequest pageRequest) {
         return ResponseEntity.ok(
