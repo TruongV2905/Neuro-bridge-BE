@@ -29,6 +29,8 @@ public interface ISkill {
 
     List<SkillResponse> getAllSkillsByExpertCode(String expertCode);
 
+    List<SkillResponse> getSkillsByIds(List<Long> skillIds);
+
     SkillSuggestionResult suggestSkills(SkillSuggestionRequest request);
 
     void updateSkillForExpert(String expertCode, SkillForExpertRequest request);

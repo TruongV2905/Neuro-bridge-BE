@@ -108,7 +108,11 @@ public class SkillService implements ISkill {
     @Override
     public PageResponse<SkillResponse> getAllSkills(PageRequest pageRequest) {
         Pageable pageable = PageUtil.createPageable(pageRequest);
-        Page<Skill> skillPage =skillRepository.findBySkillNameContainingIgnoreCaseAndDeletedFalse(pageRequest.getSearch(), pageable); // Lấy trang đầu tiên với kích thước 10
+        String search = pageRequest.getSearch();
+        if (search == null) {
+            search = "";
+        }
+        Page<Skill> skillPage =skillRepository.findBySkillNameContainingIgnoreCaseAndDeletedFalse(search, pageable); // Lấy trang đầu tiên với kích thước 10
 
         return PageResponse.fromPage(skillPage.map(skillMapper::toResponse));
     }
@@ -162,6 +166,19 @@ public class SkillService implements ISkill {
         }
 
         return expert.getExpertProfile().getSkills()
+                .stream()
+                .filter(skill -> !skill.isDeleted())
+                .map(skillMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<SkillResponse> getSkillsByIds(List<Long> skillIds) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return List.of();
+        }
+
+        return skillRepository.findAllById(skillIds)
                 .stream()
                 .filter(skill -> !skill.isDeleted())
                 .map(skillMapper::toResponse)
