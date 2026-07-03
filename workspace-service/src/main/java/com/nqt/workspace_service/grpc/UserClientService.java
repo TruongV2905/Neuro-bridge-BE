@@ -1,5 +1,6 @@
 package com.nqt.workspace_service.grpc;
 
+import com.identity.grpc.UserCodeRequest;
 import com.identity.grpc.UserRequest;
 import com.identity.grpc.UserResponse;
 import com.identity.grpc.UserServiceGrpc;
@@ -34,6 +35,12 @@ public class UserClientService {
                 throw e;
             }
         }
+    }
+
+    public UserResponse getUserByCode(String code) {
+        return userStub.getUserByCode(
+                UserCodeRequest.newBuilder().setCode(code).build()
+        );
     }
 }
 

@@ -27,7 +27,7 @@ public class Workspace {
     @Column(nullable = false)
     private UUID jobId;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private UUID escrowId;
 
     @Column(name = "client_id", nullable = false)

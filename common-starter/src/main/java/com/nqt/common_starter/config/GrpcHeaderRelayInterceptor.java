@@ -60,12 +60,24 @@ public class GrpcHeaderRelayInterceptor implements ClientInterceptor {
 
     private String resolveAuthorizationHeader() {
         String authorizationFromRequest = resolveFromServletRequest();
-
         if (authorizationFromRequest != null) {
             return authorizationFromRequest;
         }
 
+        String authorizationFromContext = resolveFromGrpcContext();
+        if (authorizationFromContext != null) {
+            return authorizationFromContext;
+        }
+
         return resolveFromSecurityContext();
+    }
+
+    private String resolveFromGrpcContext() {
+        String authorization = GrpcAuthContext.AUTHORIZATION_CONTEXT_KEY.get();
+        if (authorization == null || authorization.isBlank()) {
+            return null;
+        }
+        return normalizeBearer(authorization);
     }
 
     private String resolveFromServletRequest() {

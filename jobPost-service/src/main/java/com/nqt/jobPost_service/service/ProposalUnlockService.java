@@ -97,12 +97,12 @@ public class ProposalUnlockService implements IProposalUnlock {
 
         Proposal proposal = proposalUnlock.getProposal();
 
-        if (!proposal.isLocked()) {
-            throw new GlobalException(
-                    ErrorCode.UNAUTHORIZED.getCode(),
-                    "Proposal is not locked"
-            );
-        }
+//        if (!proposal.isLocked()) {
+//            throw new GlobalException(
+//                    ErrorCode.UNAUTHORIZED.getCode(),
+//                    "Proposal is not locked"
+//            );
+//        }
 
         if (proposal.getExpertApply() == null) {
             throw new GlobalException(

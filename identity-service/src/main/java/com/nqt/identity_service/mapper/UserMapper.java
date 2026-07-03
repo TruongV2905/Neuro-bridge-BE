@@ -29,7 +29,7 @@ public interface UserMapper {
 
     @Mapping(target = "accessToken", ignore = true)
     @Mapping(target = "refreshToken", ignore = true)
-    @Mapping(target = "id", ignore = true)
+//    @Mapping(target = "id", ignore = true)
     @Mapping(target = "email", ignore = true)
     @Mapping(target = "phone", ignore = true)
     @Mapping(target = "address", ignore = true)

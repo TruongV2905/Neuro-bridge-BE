@@ -33,8 +33,13 @@ message UserResponse {
   repeated int64 skill_ids = 16;
 }
 
+message UserCodeRequest {
+  string code = 1;
+}
+
 service UserService {
   rpc GetUser(UserRequest) returns (UserResponse);
 
   rpc GetCurrentUser(GetCurrentUserRequest) returns (UserResponse);
+  rpc getUserByCode(UserCodeRequest) returns (UserResponse);
 }
