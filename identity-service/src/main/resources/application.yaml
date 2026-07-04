@@ -76,6 +76,10 @@ grpc:
   server:
     port: 9091
     enable-keep-alive: true
+  client:
+    payment-service:
+      address: static://localhost:9095
+      negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
   valid-duration: 3600 # in second

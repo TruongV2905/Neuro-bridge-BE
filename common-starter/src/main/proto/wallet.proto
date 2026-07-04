@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package com.payment.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.payment.grpc";
+
+message CreateWalletRequest {
+  string user_code = 1;
+}
+
+message WalletResponse {
+  string id = 1;
+  string user_code = 2;
+  string status = 3;
+}
+
+service WalletGrpcService {
+  rpc CreateWallet(CreateWalletRequest) returns (WalletResponse);
+}

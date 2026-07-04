@@ -14,6 +14,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,7 @@ import java.math.RoundingMode;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class ProjectEscrowService implements IProjectEscrow {
@@ -32,6 +33,20 @@ public class ProjectEscrowService implements IProjectEscrow {
     IdentityServiceClient identityServiceClient;
     VNPayService vNPayService;
     PaymentTransactionService paymentTransactionService;
+
+    public ProjectEscrowService(
+            ProjectEscrowRepo projectEscrowRepo,
+            ProjectEscrowMapper projectEscrowMapper,
+            IdentityServiceClient identityServiceClient,
+            VNPayService vNPayService,
+            @Lazy PaymentTransactionService paymentTransactionService
+    ) {
+        this.projectEscrowRepo = projectEscrowRepo;
+        this.projectEscrowMapper = projectEscrowMapper;
+        this.identityServiceClient = identityServiceClient;
+        this.vNPayService = vNPayService;
+        this.paymentTransactionService = paymentTransactionService;
+    }
 
     // ---------------------------------------------------------------------
     // Base CRUD

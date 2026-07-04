@@ -1,3 +1,10 @@
+debug: true
+
+logging:
+  level:
+    org.springframework.beans.factory: DEBUG
+    org.springframework.context.annotation: DEBUG
+
 server:
   port: 4564
   forward-headers-strategy: framework
@@ -40,7 +47,7 @@ springdoc:
     path: /v3/api-docs
 grpc:
   server:
-    port: -1
+    port: 9095
   client:
     identity-service:
       address: discovery:///identity-service

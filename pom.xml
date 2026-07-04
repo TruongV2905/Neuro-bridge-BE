@@ -15,7 +15,6 @@
         <module>identity-service</module>
         <module>api-gateway</module>
         <module>workspace-service</module>
-        <module>jobpost-service</module>
         <module>notification-service</module>
         <module>jobPost-service</module>
         <module>payment-service</module>

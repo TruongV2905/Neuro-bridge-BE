@@ -6,6 +6,7 @@ import com.nqt.payment_service.constant.PaymentReferenceType;
 import com.nqt.payment_service.constant.TransactionType;
 import com.nqt.payment_service.constant.WalletStatus;
 import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
+import com.nqt.payment_service.dto.request.UpdateBankInfoRequest;
 import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
 import com.nqt.payment_service.dto.response.UserWalletResponse;
 import com.nqt.payment_service.entity.UserWallet;
@@ -17,19 +18,39 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserWalletService implements IUserWallet {
     UserWalletRepo userWalletRepository;
     UserWalletMapper userWalletMapper;
     IdentityServiceClient  identityServiceClient;
     VNPayService vNPayService;
+    UserWalletRepo userWalletRepo;
+
+//    @Lazy
     PaymentTransactionService paymentTransactionService;
+
+    public UserWalletService(
+            UserWalletRepo userWalletRepository,
+            UserWalletMapper userWalletMapper,
+            IdentityServiceClient identityServiceClient,
+            VNPayService vNPayService,
+            @org.springframework.context.annotation.Lazy PaymentTransactionService paymentTransactionService,
+            UserWalletRepo userWalletRepo
+    ) {
+        this.userWalletRepository = userWalletRepository;
+        this.userWalletMapper = userWalletMapper;
+        this.identityServiceClient = identityServiceClient;
+        this.vNPayService = vNPayService;
+        this.paymentTransactionService = paymentTransactionService;
+        this.userWalletRepo = userWalletRepo;
+    }
 
     @Override
     public UserWalletResponse create(String userCode) {
@@ -39,6 +60,10 @@ public class UserWalletService implements IUserWallet {
 
         UserWallet wallet = UserWallet.builder()
                 .userCode(userCode)
+                .status(WalletStatus.ACTIVE)
+                .walletBalance(BigDecimal.ZERO)
+                .totalEarned(BigDecimal.ZERO)
+                .totalWithdrawn(BigDecimal.ZERO)
                 .build();
 
         wallet = userWalletRepository.save(wallet);
@@ -144,6 +169,21 @@ public class UserWalletService implements IUserWallet {
         userWalletRepository.save(currentWallet);
     }
 
+    @Override
+    @Transactional
+    public void updateCurrentUserBankInfo(UpdateBankInfoRequest request) {
+        UserResponse currentUser = identityServiceClient.getCurrentUser();
+        String userCode = currentUser.getCode(); // đổi theo tên getter thực tế trong proto
+
+        UserWallet wallet = userWalletRepo.findByUserCode(userCode)
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode=" + userCode));
+
+        wallet.setAccountHolderName(request.getAccountHolderName());
+        wallet.setAccountNumber(request.getAccountNumber());
+        wallet.setBankName(request.getBankName());
+
+        userWalletRepo.save(wallet);
+    }
 
 
     @Override
