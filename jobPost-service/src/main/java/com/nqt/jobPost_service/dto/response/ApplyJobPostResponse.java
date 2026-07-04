@@ -12,6 +12,6 @@ import lombok.experimental.FieldDefaults;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApplyJobPostResponse {
     ExpertApplyResponse expertApply;
-    ProposalResponse proposalResponse;
+    ProposalResponse proposal;
     ProposalUnlockResponse proposalUnlock;
 }
