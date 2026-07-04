@@ -1,6 +1,7 @@
 package com.nqt.payment_service.controller;
 
 import com.nqt.payment_service.dto.request.UpdateBankInfoRequest;
+import com.nqt.payment_service.dto.response.UserWalletResponse;
 import com.nqt.payment_service.service.impl.IUserWallet;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -21,10 +22,10 @@ public class UserWalletController {
     @PutMapping("/me/bank-info")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Cập nhật thông tin tài khoản ngân hàng của ví hiện tại")
-    public ResponseEntity<?> updateBankInfo(
+    public ResponseEntity<UserWalletResponse> updateBankInfo(
             @Valid @RequestBody UpdateBankInfoRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        userWalletService.updateCurrentUserBankInfo(request);
-        return ResponseEntity.ok().build();
+        UserWalletResponse response = userWalletService.updateCurrentUserBankInfo(request);
+        return ResponseEntity.ok(response);
     }
 }

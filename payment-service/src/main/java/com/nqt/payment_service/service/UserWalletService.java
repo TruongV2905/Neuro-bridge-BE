@@ -171,7 +171,7 @@ public class UserWalletService implements IUserWallet {
 
     @Override
     @Transactional
-    public void updateCurrentUserBankInfo(UpdateBankInfoRequest request) {
+    public UserWalletResponse updateCurrentUserBankInfo(UpdateBankInfoRequest request) {
         UserResponse currentUser = identityServiceClient.getCurrentUser();
         String userCode = currentUser.getCode(); // đổi theo tên getter thực tế trong proto
 
@@ -182,7 +182,23 @@ public class UserWalletService implements IUserWallet {
         wallet.setAccountNumber(request.getAccountNumber());
         wallet.setBankName(request.getBankName());
 
-        userWalletRepo.save(wallet);
+        UserWallet savedWallet = userWalletRepo.save(wallet);
+
+        return toResponse(savedWallet);
+    }
+
+    private UserWalletResponse toResponse(UserWallet wallet) {
+        return UserWalletResponse.builder()
+                .id(wallet.getId())
+                .userCode(wallet.getUserCode())
+                .accountHolderName(wallet.getAccountHolderName())
+                .accountNumber(wallet.getAccountNumber())
+                .bankName(wallet.getBankName())
+                .walletBalance(wallet.getWalletBalance())
+                .totalEarned(wallet.getTotalEarned())
+                .totalWithdrawn(wallet.getTotalWithdrawn())
+                .status(wallet.getStatus())
+                .build();
     }
 
 

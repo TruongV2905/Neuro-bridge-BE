@@ -16,5 +16,5 @@ public interface IUserWallet {
     UserWalletResponse getWalletAdmin();
     UserWalletResponse withdrawToBank(String userCode);
     void createRequest(BigDecimal amountRequestWithdrawal);
-    void updateCurrentUserBankInfo(UpdateBankInfoRequest request);
+    UserWalletResponse updateCurrentUserBankInfo(UpdateBankInfoRequest request);
 }

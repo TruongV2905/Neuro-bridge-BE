@@ -26,4 +26,8 @@ public class UserWalletResponse {
     BigDecimal totalWithdrawn;
 
     WalletStatus status;
+
+    String bankName;
+    String accountNumber;
+    String accountHolderName;
 }
