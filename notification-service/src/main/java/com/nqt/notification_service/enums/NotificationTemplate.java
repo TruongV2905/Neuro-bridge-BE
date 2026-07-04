@@ -35,6 +35,15 @@ public enum NotificationTemplate {
             "Bạn đã được thêm vào Workspace",
             e -> "Neural Bridge đã tạo Workspace mới cho dự án của bạn. Hãy bắt đầu cộng tác!"
     ),
+    CONTRACT_SIGN_REQUIRED(
+            "Hợp đồng cần được ký",
+            e -> String.format("%s đã ký hợp đồng. Vui lòng vào ký để tiếp tục", e.getSenderName())
+    ),
+    CONTRACT_FULLY_SIGNED(
+            "Hợp đồng đã được ký đầy đủ",
+            e -> String.format("Hợp đồng với %s đã được ký đầy đủ. Vui lòng tiến hành thanh toán để bắt đầu dự án.",
+                    e.getSenderName())
+    ),
     UNKNOWN(
             "Thông báo mới",
             e -> "Có sự kiện mới trong hệ thống"

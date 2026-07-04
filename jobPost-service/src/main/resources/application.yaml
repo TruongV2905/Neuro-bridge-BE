@@ -8,6 +8,8 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/jobpost
     username: postgres
     password: ${DB_PASSWORD:postgres}
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
   threads:
     virtual:
       enabled: true

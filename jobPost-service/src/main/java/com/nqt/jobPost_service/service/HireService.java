@@ -1,5 +1,9 @@
 package com.nqt.jobPost_service.service;
 
+import com.nqt.jobPost_service.constant.ContractStatus;
+import com.nqt.jobPost_service.entity.Contract;
+import com.nqt.jobPost_service.entity.ProposalUnlock;
+import com.nqt.jobPost_service.service.impl.IContractService;
 import org.springframework.security.core.Authentication;
 import com.google.protobuf.Timestamp;
 import com.nqt.jobPost_service.constant.ApplyStatus;
@@ -26,6 +30,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -35,6 +40,7 @@ public class HireService implements IHireService {
 
     private final JobPostRepo jobPostRepo;
     private final ExpertApplyRepo expertApplyRepo;
+    private final IContractService contractService;
 
     @GrpcClient("workspace-service")
     private WorkspaceServiceGrpc.WorkspaceServiceBlockingStub workspaceStub;
@@ -43,13 +49,13 @@ public class HireService implements IHireService {
     @Transactional
     public HireResponse hireExpert(UUID jobPostId, UUID expertApplyId) {
 
-        // ✅ 1. Lấy userId & role hiện tại trực tiếp từ SecurityContext (giống JwtAuthenticationSupport đã set)
+        // ✅ 1. Lấy userId & role hiện tại
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             throw new AccessDeniedException("Người dùng chưa đăng nhập.");
         }
 
-        String currentUserId = auth.getName(); // userId dạng String
+        String currentUserId = auth.getName();
 
         String currentUserRole = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -57,60 +63,116 @@ public class HireService implements IHireService {
                 .map(r -> r.replace("ROLE_", ""))
                 .orElseThrow(() -> new AccessDeniedException("Không xác định được vai trò người dùng."));
 
-        // ✅ 2. Chỉ CLIENT mới có quyền thuê
         if (!"CLIENT".equalsIgnoreCase(currentUserRole)) {
             throw new AccessDeniedException("Chỉ Client mới có quyền thuê Expert.");
         }
 
-        // ✅ 2. JobPost phải tồn tại
+        // ✅ 2. JobPost & ExpertApply phải tồn tại
         JobPost jobPost = jobPostRepo.findById(jobPostId)
                 .orElseThrow(() -> new EntityNotFoundException("Job không tồn tại: " + jobPostId));
 
+        ExpertApply expertApply = expertApplyRepo.findById(expertApplyId)
+                .orElseThrow(() -> new EntityNotFoundException("Đơn ứng tuyển không tồn tại: " + expertApplyId));
 
-        // ✅ 4. Job phải đang ở trạng thái có thể thuê (chưa ASSIGNED)
+        ProposalUnlock proposalUnlock = expertApply.getProposal() != null
+                ? expertApply.getProposal().getProposalUnlock()
+                : null;
+
+        if (proposalUnlock == null) {
+            throw new IllegalStateException("Chưa có Proposal Unlock cho đơn ứng tuyển này.");
+        }
+
+        // ✅ 3. Kiểm tra Contract đã tồn tại cho proposalUnlock này chưa
+        Optional<Contract> existingContractOpt = contractService.findByProposalUnlockId(proposalUnlock.getId());
+
+        if (existingContractOpt.isEmpty()) {
+            // === LẦN GỌI ĐẦU: tạo Contract, CHƯA tạo workspace ===
+            return createContractStep(jobPost, expertApply, proposalUnlock);
+        }
+
+        Contract contract = existingContractOpt.get();
+
+        if (contract.getStatus() != ContractStatus.FULLY_SIGNED) {
+            throw new IllegalStateException("Hợp đồng chưa được ký đủ bởi cả 2 bên. Vui lòng ký hợp đồng trước.");
+        }
+
+        if (contract.getWorkspaceId() != null) {
+            // Đã tạo workspace trước đó (gọi lại lần nữa) → trả về luôn, không gọi gRPC lại
+            return HireResponse.builder()
+                    .contractId(contract.getId())
+                    .workspaceId(contract.getWorkspaceId())
+                    .jobPostId(jobPost.getId())
+                    .expertCode(expertApply.getExpertCode())
+                    .message("Workspace đã được khởi tạo trước đó.")
+                    .build();
+        }
+
+        // === LẦN GỌI SAU (đã FULLY_SIGNED): gọi gRPC tạo workspace như logic cũ ===
+        return createWorkspaceStep(jobPost, expertApply, contract);
+    }
+
+
+    private HireResponse createContractStep(JobPost jobPost, ExpertApply expertApply, ProposalUnlock proposalUnlock) {
+
         if (jobPost.getStatus() == JobPostStatus.ASSIGNED) {
             throw new IllegalStateException("Công việc này đã được thuê Expert khác.");
         }
-
-        // ✅ 5. ExpertApply phải tồn tại và thuộc đúng job này
-        ExpertApply expertApply = expertApplyRepo.findById(expertApplyId)
-                .orElseThrow(() -> new EntityNotFoundException("Đơn ứng tuyển không tồn tại: " + expertApplyId));
 
         if (expertApply.getStatus() != ApplyStatus.PENDING) {
             throw new IllegalStateException("Đơn ứng tuyển này đã được xử lý trước đó.");
         }
 
-        // ✅ 6. Chấp nhận ExpertApply được chọn
+        // Chấp nhận ExpertApply được chọn
         expertApply.setStatus(ApplyStatus.APPROVED);
         expertApplyRepo.save(expertApply);
 
-        // ✅ 7. Từ chối các ExpertApply còn lại của job này
-        List<ExpertApply> others = expertApplyRepo.findAllByJobPost_Id(jobPostId);
+        // Từ chối các ExpertApply còn lại của job này
+        List<ExpertApply> others = expertApplyRepo.findAllByJobPost_Id(jobPost.getId());
         for (ExpertApply other : others) {
-            if (!other.getId().equals(expertApplyId) && other.getStatus() == ApplyStatus.PENDING) {
+            if (!other.getId().equals(expertApply.getId()) && other.getStatus() == ApplyStatus.PENDING) {
                 other.setStatus(ApplyStatus.REJECTED);
                 expertApplyRepo.save(other);
             }
         }
 
-        // ✅ 8. Cập nhật trạng thái job
+        // Cập nhật trạng thái job
         jobPost.setStatus(JobPostStatus.ASSIGNED);
         jobPostRepo.save(jobPost);
 
-        // ✅ 9. Tính deadline dựa trên estimatedDays của ExpertApply được chọn
+        // Tính deadline
         int days = expertApply.getEstimatedDays() != null
                 ? expertApply.getEstimatedDays()
-                : jobPost.getEstimatedDays(); // fallback nếu expert không đề xuất riêng
+                : jobPost.getEstimatedDays();
         LocalDateTime deadline = LocalDateTime.now().plusDays(days);
 
-        // ✅ 10. Gọi gRPC sang workspace-service để khởi tạo workspace
+        Contract contract = contractService.createContract(
+                jobPost.getId(),
+                proposalUnlock.getId(),
+                jobPost.getCreatorCode(),
+                expertApply.getExpertCode(),
+                proposalUnlock.getStrategyDetail(),
+                proposalUnlock.getUnlockCost(),
+                jobPost.getTitle(),
+                deadline
+        );
+
+        return HireResponse.builder()
+                .contractId(contract.getId())
+                .jobPostId(jobPost.getId())
+                .expertCode(expertApply.getExpertCode())
+                .message("Thuê Expert thành công. Vui lòng ký hợp đồng để tiếp tục khởi tạo workspace.")
+                .build();
+    }
+
+    private HireResponse createWorkspaceStep(JobPost jobPost, ExpertApply expertApply, Contract contract) {
+
         CreateWorkspaceRequest request = CreateWorkspaceRequest.newBuilder()
                 .setJobId(jobPost.getId().toString())
                 .setEscrowId("") // chưa có payment-service
                 .setClientId(jobPost.getCreatorCode())
                 .setExpertId(expertApply.getExpertCode())
                 .setProjectName(jobPost.getTitle())
-                .setDeadline(toTimestamp(deadline))
+                .setDeadline(toTimestamp(contract.getDeadline()))
                 .build();
 
         CreateWorkspaceResponse response;
@@ -126,11 +188,15 @@ public class HireService implements IHireService {
             throw new RuntimeException("Tạo workspace thất bại: " + response.getMessage());
         }
 
+        UUID workspaceId = UUID.fromString(response.getWorkspaceId());
+        contractService.markWorkspaceCreated(contract.getId(), workspaceId);
+
         return HireResponse.builder()
-                .workspaceId(UUID.fromString(response.getWorkspaceId()))
+                .contractId(contract.getId())
+                .workspaceId(workspaceId)
                 .jobPostId(jobPost.getId())
                 .expertCode(expertApply.getExpertCode())
-                .message("Thuê Expert thành công, workspace đã được khởi tạo.")
+                .message("Hợp đồng đã ký đủ, workspace đã được khởi tạo.")
                 .build();
     }
 
