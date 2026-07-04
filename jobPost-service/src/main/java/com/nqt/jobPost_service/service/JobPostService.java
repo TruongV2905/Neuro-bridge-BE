@@ -126,8 +126,8 @@ public class JobPostService implements IJobPost {
         if (request.getFilter() == null) {
             request.setFilter(new SubJobPostFilterRequest());
         }
-        request.getFilter().setCreatorId(
-                UUID.fromString(currentUser.getId())
+        request.getFilter().setCreatorCode(
+                currentUser.getCode()
         );
 
         Pageable pageable = PageUtil.createPageable(request);

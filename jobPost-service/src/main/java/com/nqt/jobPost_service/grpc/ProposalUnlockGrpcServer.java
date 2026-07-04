@@ -92,7 +92,6 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
             com.jobpost.grpc.ProposalUnlockResponse response = com.jobpost.grpc.ProposalUnlockResponse.newBuilder()
                     .setProposalUnlockId(updated.getId().toString())
                     .setStrategyDetail(updated.getStrategyDetail())
-                    .setUnlockCost(updated.getUnlockCost().toPlainString())
                     .build();
 
             responseObserver.onNext(response);

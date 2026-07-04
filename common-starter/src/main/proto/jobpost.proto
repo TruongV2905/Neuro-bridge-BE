@@ -12,13 +12,11 @@ message JobIdRequest {
 message ProposalUnlockResponse {
   string proposal_unlock_id = 1;
   string strategy_detail = 2;
-  string unlock_cost = 3;
 }
 
 message ProposalUnlockUpdateRequest {
   string proposal_unlock_id = 1;
   string strategy_detail = 2;
-  string unlock_cost = 3;
 }
 
 service ProposalUnlockGrpcService {
