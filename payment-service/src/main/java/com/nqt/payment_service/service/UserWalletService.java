@@ -1,0 +1,169 @@
+package com.nqt.payment_service.service;
+
+import com.identity.grpc.UserResponse;
+import com.nqt.common_starter.exception.GlobalException;
+import com.nqt.payment_service.constant.PaymentReferenceType;
+import com.nqt.payment_service.constant.TransactionType;
+import com.nqt.payment_service.constant.WalletStatus;
+import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
+import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
+import com.nqt.payment_service.dto.response.UserWalletResponse;
+import com.nqt.payment_service.entity.UserWallet;
+import com.nqt.payment_service.httpclient.IdentityServiceClient;
+import com.nqt.payment_service.mapper.UserWalletMapper;
+import com.nqt.payment_service.repository.UserWalletRepo;
+import com.nqt.payment_service.service.impl.IUserWallet;
+import jakarta.transaction.Transactional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+
+@Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public class UserWalletService implements IUserWallet {
+    UserWalletRepo userWalletRepository;
+    UserWalletMapper userWalletMapper;
+    IdentityServiceClient  identityServiceClient;
+    VNPayService vNPayService;
+    PaymentTransactionService paymentTransactionService;
+
+    @Override
+    public UserWalletResponse create(String userCode) {
+        if (userWalletRepository.existsByUserCode(userCode)) {
+            throw new GlobalException("Wallet already exists for userCode: " + userCode);
+        }
+
+        UserWallet wallet = UserWallet.builder()
+                .userCode(userCode)
+                .build();
+
+        wallet = userWalletRepository.save(wallet);
+
+        return userWalletMapper.toResponse(wallet);
+    }
+
+    @Override
+    public UserWalletResponse getUserWalletOfMine() {
+        UserResponse user = identityServiceClient.getCurrentUser();
+        String userCode = user.getCode();
+        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for userCode: " + userCode));
+
+        return userWalletMapper.toResponse(wallet);
+    }
+
+    @Override
+    public UserWalletResponse deposit(String userCode, BigDecimal depositAmount) {
+
+        if (depositAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new GlobalException("Deposit amount must be greater than 0");
+        }
+
+        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
+
+        if (wallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new GlobalException("Wallet is not active");
+        }
+
+
+        wallet.setWalletBalance(wallet.getWalletBalance().add(depositAmount));
+        UserWallet savedWallet = userWalletRepository.save(wallet);
+
+        return userWalletMapper.toResponse(savedWallet);
+    }
+    @Override
+    public UserWalletResponse withdraw(String userCode, BigDecimal withdrawAmount) {
+
+        if (withdrawAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new GlobalException("Withdraw amount must be greater than 0");
+        }
+
+        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
+
+        if (wallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new GlobalException("Wallet is not active");
+        }
+
+        if (wallet.getWalletBalance().compareTo(withdrawAmount) < 0) {
+            throw new GlobalException("Wallet balance is not enough");
+        }
+
+        wallet.setWalletBalance(wallet.getWalletBalance().subtract(withdrawAmount));
+        wallet.setTotalWithdrawn(wallet.getTotalWithdrawn().add(withdrawAmount));
+
+        UserWallet savedWallet = userWalletRepository.save(wallet);
+        return userWalletMapper.toResponse(savedWallet);
+    }
+
+
+    @Override
+    public UserWalletResponse getWalletAdmin() {
+        UserWallet adminWallet = userWalletRepository.findFirstByUserCodeStartingWith("ADM")
+                .orElseThrow(() -> new GlobalException("Admin wallet not found"));
+        return userWalletMapper.toResponse(adminWallet);
+    }
+
+
+    @Transactional
+    @Override
+    public String depositByVnPay(BigDecimal depositAmount,String description, String clientIp) {
+        UserResponse user = identityServiceClient.getCurrentUser();
+        String userCode = user.getCode();
+        PaymentTransactionResponse paymentTransactionResponse = paymentTransactionService.payment(
+                null,
+                userCode,
+                TransactionType.WALLET_DEPOSIT,
+                "depositByVnPay",
+                null,
+                depositAmount,
+                null,
+                null
+        );
+        String paymentTransactionId = paymentTransactionResponse.getId().toString();
+        try{
+            return  vNPayService.createVnPayUrl(paymentTransactionId,depositAmount,clientIp);
+        }catch (Exception e){
+            throw new GlobalException("Failed to create VNPay URL: " + e.getMessage());
+        }
+    }
+
+
+    @Override
+    public void createRequest(BigDecimal amountRequestWithdrawal){
+        UserResponse user = identityServiceClient.getCurrentUser();
+        UserWallet currentWallet = userWalletRepository.findByUserCode(user.getCode())
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + user.getCode()));
+        currentWallet.setWalletBalance(currentWallet.getWalletBalance().add(amountRequestWithdrawal));
+        currentWallet.setRequestWithdrawal(true);
+        userWalletRepository.save(currentWallet);
+    }
+
+
+
+    @Override
+    @Transactional
+    public UserWalletResponse withdrawToBank(String userCode){
+        UserWallet currentWallet = userWalletRepository.findByUserCode(userCode)
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
+        paymentTransactionService.payment(
+                userCode,
+                null,
+                TransactionType.WALLET_WITHDRAW,
+                null,
+                null,
+                currentWallet.getAmountRequestWithdrawal(),
+                null,
+                null
+        );
+        currentWallet.setRequestWithdrawal(false);
+        currentWallet.setAmountRequestWithdrawal(BigDecimal.ZERO);
+        UserWallet savedWallet = userWalletRepository.save(currentWallet);
+        return userWalletMapper.toResponse(savedWallet);
+    }
+}

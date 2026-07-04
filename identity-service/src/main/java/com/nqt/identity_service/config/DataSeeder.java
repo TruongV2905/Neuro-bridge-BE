@@ -37,7 +37,6 @@ public class DataSeeder implements CommandLineRunner {
         if (userRepository.existsByEmail("admin@gmail.com")) {
             return;
         }
-
         User admin =
                 User.builder()
                         .email("admin@gmail.com")
