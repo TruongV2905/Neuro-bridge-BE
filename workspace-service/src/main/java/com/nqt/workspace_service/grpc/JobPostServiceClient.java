@@ -24,11 +24,10 @@ public class JobPostServiceClient {
         return proposalUnlockStub.getApprovedProposalUnlock(request);
     }
 
-    public ProposalUnlockResponse updateProposalUnlock(UUID proposalUnlockId, String strategyDetail, BigDecimal unlockCost) {
+    public ProposalUnlockResponse updateProposalUnlock(UUID proposalUnlockId, String strategyDetail) {
         ProposalUnlockUpdateRequest request = ProposalUnlockUpdateRequest.newBuilder()
                 .setProposalUnlockId(proposalUnlockId.toString())
                 .setStrategyDetail(strategyDetail)
-                .setUnlockCost(unlockCost.toPlainString())
                 .build();
 
         return proposalUnlockStub.updateProposalUnlock(request);
