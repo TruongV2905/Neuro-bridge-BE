@@ -30,6 +30,10 @@ public final class JwtAuthenticationSupport {
 
             String role = claims.getStringClaim("role");
 
+            if (role == null || role.isBlank()) {
+                role = claims.getStringClaim("scope");
+            }
+
             List<SimpleGrantedAuthority> authorities = buildAuthorities(role);
 
             return new UsernamePasswordAuthenticationToken(

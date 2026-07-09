@@ -9,6 +9,7 @@ import com.nqt.identity_service.dto.request.register.ClientRegisterRequest;
 import com.nqt.identity_service.dto.request.register.ExpertRegisterRequest;
 import com.nqt.identity_service.dto.response.UserResponse;
 import com.nqt.identity_service.entity.*;
+import com.nqt.identity_service.grpc.PaymentServiceClient;
 import com.nqt.identity_service.mapper.ClientProfileMapper;
 import com.nqt.identity_service.mapper.ExpertProfileMapper;
 import com.nqt.identity_service.mapper.UserMapper;
@@ -41,6 +42,7 @@ public class AuthenticationService implements IAuthentication {
     ClientProfileMapper clientProfileMapper;
     ExpertProfileMapper expertProfileMapper;
     SkillRepository skillRepo;
+    PaymentServiceClient paymentServiceClient;
 
 
 
@@ -61,7 +63,9 @@ public class AuthenticationService implements IAuthentication {
         user.setClientProfile(clientProfile);
         user.getClientProfile().setUser(user);
         // Lưu user
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        createWalletForUser(savedUser.getCode());
+
     }
 
     @Override
@@ -81,8 +85,19 @@ public class AuthenticationService implements IAuthentication {
         expertProfile.setUser(user);
         user.setExpertProfile(expertProfile);
         user.setRole(Role.EXPERT);
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
+        createWalletForUser(savedUser.getCode());
+
+    }
+
+    private void createWalletForUser(String userCode) {
+        try {
+            paymentServiceClient.createWallet(userCode);
+        } catch (Exception e) {
+            log.error("Failed to create wallet for userCode={}: {}", userCode, e.getMessage());
+            throw new GlobalException("Failed to create wallet for new user");
+        }
     }
 
     @Override

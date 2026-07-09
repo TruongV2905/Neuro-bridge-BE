@@ -14,7 +14,7 @@ import java.util.UUID;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SubJobPostFilterRequest {
-    UUID creatorId;
+        String creatorCode;
 
 
     Set<Long> requiredSkillIds;

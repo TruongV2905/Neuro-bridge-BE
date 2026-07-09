@@ -24,7 +24,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:12345678}
       client-type: jedis
   cache:
     type: none
@@ -71,9 +70,7 @@ jwt:
 # a ShadedNettyGrpcServer on this service.
 grpc:
   server:
-    enabled: false
-  client:
-    enabled: false
+    port: -1
 
 app:
   shared-secret: "g3eXe2BAcd2w17dhRWKdjT9MM9MSAAMUN4D9xfAtIJ/9u0muMGFwPRewhcOa4GbN6nXZ2fWFzqVfAUkGZwr95w=="

@@ -1,11 +1,6 @@
 package com.nqt.jobPost_service.httpclient;
 
-import com.identity.grpc.GetCurrentUserRequest;
-import com.identity.grpc.SkillSuggestionRequest;
-import com.identity.grpc.SkillSuggestionResponse;
-import com.identity.grpc.SkillSuggestionServiceGrpc;
-import com.identity.grpc.UserResponse;
-import com.identity.grpc.UserServiceGrpc;
+import com.identity.grpc.*;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +16,12 @@ public class IdentityServiceClient {
     public UserResponse getCurrentUser() {
         return userServiceBlockingStub.getCurrentUser(
                 GetCurrentUserRequest.newBuilder().build()
+        );
+    }
+
+    public UserResponse getUserByCode(String code) {
+        return userServiceBlockingStub.getUserByCode(
+                UserCodeRequest.newBuilder().setCode(code).build()
         );
     }
 

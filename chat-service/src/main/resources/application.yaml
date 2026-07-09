@@ -1,0 +1,89 @@
+server:
+  port: 4565
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: chat-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/chat
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: chat-service
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      properties:
+        spring.json.add.type.headers: false
+
+  threads:
+    virtual:
+      enabled: true
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            loggerLevel: BASIC
+
+  main:
+    allow-circular-references: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+grpc:
+  server:
+    port: 9095
+
+  client:
+    identity-service:
+      address: ${IDENTITY_GRPC_ADDRESS:static://localhost:9091}
+      negotiation-type: plaintext
+
+jwt:
+  signerKey: ${JWT_SIGNER_KEY:AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g==}
+
+app:
+  security:
+    public-endpoints:
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/public/**"
+      - "/ws/chat/**"
+
+logging:
+  level:
+    org.springframework.beans.factory: INFO
+    org.springframework.context.annotation: INFO
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG
+    com.nqt.chat_service: DEBUG
+
+debug: true

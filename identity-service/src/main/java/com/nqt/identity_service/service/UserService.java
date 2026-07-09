@@ -47,6 +47,7 @@ public class UserService implements IUser {
 
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getCurrentUser() {
         String userId = getCurrentUserId();
 
@@ -85,6 +86,7 @@ public class UserService implements IUser {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<UserResponse> getAllUsers(UserFilterRequest request) {
 
         //vaidlation
@@ -112,6 +114,7 @@ public class UserService implements IUser {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getUserByCode(String code) {
         User user = userRepository.findByCode(code)
                 .orElseThrow(() -> new GlobalException(400,"User" + ErrorCode.NOT_FOUND));
@@ -119,6 +122,7 @@ public class UserService implements IUser {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new GlobalException("User not found"));

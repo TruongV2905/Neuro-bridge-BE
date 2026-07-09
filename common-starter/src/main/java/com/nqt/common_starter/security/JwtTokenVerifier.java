@@ -1,9 +1,9 @@
 package com.nqt.common_starter.security;
 
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSVerifier;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nqt.common_starter.exception.GlobalException;
 import jakarta.annotation.PostConstruct;
@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 
@@ -57,6 +58,30 @@ public class JwtTokenVerifier {
         } catch (Exception e) {
             log.error("JWT verify failed: {}", e.getMessage());
             throw new GlobalException("Invalid JWT");
+        }
+    }
+
+    public String issueServiceToken(String serviceName) {
+        try {
+            JWSSigner signer = new MACSigner(keyBytes);
+
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .subject(serviceName)
+                    .claim("userId", serviceName)
+                    .claim("role", "SERVICE")
+                    .issueTime(new Date())
+                    .expirationTime(Date.from(Instant.now().plusSeconds(30))) // sống rất ngắn, chỉ đủ 1 lần gọi nội bộ
+                    .build();
+
+            SignedJWT signedJWT = new SignedJWT(
+                    new JWSHeader(JWSAlgorithm.HS512), claims);
+
+            signedJWT.sign(signer);
+
+            return signedJWT.serialize();
+        } catch (JOSEException e) {
+            log.error("Failed to issue service token: {}", e.getMessage());
+            throw new GlobalException("Cannot issue service token");
         }
     }
 

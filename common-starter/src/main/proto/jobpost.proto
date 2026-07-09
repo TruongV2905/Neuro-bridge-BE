@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package com.jobpost.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.jobpost.grpc";
+
+message JobIdRequest {
+  string job_id = 1;
+}
+
+message ProposalUnlockResponse {
+  string proposal_unlock_id = 1;
+  string strategy_detail = 2;
+}
+
+message ProposalUnlockUpdateRequest {
+  string proposal_unlock_id = 1;
+  string strategy_detail = 2;
+}
+
+service ProposalUnlockGrpcService {
+  rpc GetApprovedProposalUnlock(JobIdRequest) returns (ProposalUnlockResponse);
+  rpc UpdateProposalUnlock(ProposalUnlockUpdateRequest) returns (ProposalUnlockResponse);
+}

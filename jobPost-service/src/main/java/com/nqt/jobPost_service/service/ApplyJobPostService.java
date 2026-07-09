@@ -46,6 +46,14 @@ public class ApplyJobPostService implements IApplyJobPost {
         ExpertApplyResponse expertApplyResponse =
                 expertApplyService.create(request.getExpertApplyRequest());
 
+        if(request.getProposalRequest() == null) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Proposal request is required"
+            );
+
+        }
+
         // 2. Create Proposal
         ProposalResponse proposalResponse =
                 proposalService.createForExpertApply(

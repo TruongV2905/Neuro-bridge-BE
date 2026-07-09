@@ -1,0 +1,67 @@
+debug: true
+
+logging:
+  level:
+    org.springframework.beans.factory: DEBUG
+    org.springframework.context.annotation: DEBUG
+
+server:
+  port: 4564
+  forward-headers-strategy: framework
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/payment
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+  threads:
+    virtual:
+      enabled: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            # Feign sẽ tự động dùng Thread của Virtual Threads
+            loggerLevel: BASIC
+  main:
+    allow-circular-references: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+grpc:
+  server:
+    port: 9095
+  client:
+    identity-service:
+      address: discovery:///identity-service
+      negotiation-type: plaintext
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
+app:
+  security:
+    public-endpoints:
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/public/**"
+vnpay:
+  tmn-code: "FCSU007M"
+  hash-secret: "YW0OYS5HINCFVVCQM3P75IUOQQO5GO77"
+  pay-url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+  return-url: "http://localhost:5173/payment" #return-url là khi thanh toán  xong thì sẽ truy cập vào cái đường link vd: http://localhost:5173/oayment

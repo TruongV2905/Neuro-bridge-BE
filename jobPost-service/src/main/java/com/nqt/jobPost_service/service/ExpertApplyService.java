@@ -42,6 +42,19 @@ public class ExpertApplyService implements IExpertApply {
                         ErrorCode.NOT_FOUND.getCode(),
                         "Job Post " + ErrorCode.NOT_FOUND.getMessage()
                 ));
+
+        boolean alreadyApplied = expertApplyRepo.existsByJobPost_IdAndExpertCode(
+                request.getJobPostId(),
+                request.getExpertCode()
+        );
+
+        if (alreadyApplied) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Expert đã apply vào job post này rồi"
+            );
+        }
+
         ExpertApply expertApply = expertApplyMapper.toEntity(request);
         expertApply.setJobPost(jobPost);
 

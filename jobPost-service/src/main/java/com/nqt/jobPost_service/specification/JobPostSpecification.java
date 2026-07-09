@@ -45,10 +45,10 @@ public class JobPostSpecification {
                 return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
             }
 
-            if (filter.getCreatorId() != null) {
+            if (filter.getCreatorCode() != null) {
                 predicates.add(criteriaBuilder.equal(
-                        root.get("creatorId"),
-                        filter.getCreatorId()
+                        root.get("creatorCode"),
+                        filter.getCreatorCode()
                 ));
             }
 

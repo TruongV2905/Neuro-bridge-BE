@@ -5,8 +5,12 @@ import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.security.authentication.GrpcAuthenticationReader;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import java.util.List;
 
 @Slf4j
 public class JwtGrpcAuthenticationReader implements GrpcAuthenticationReader {
@@ -27,7 +31,10 @@ public class JwtGrpcAuthenticationReader implements GrpcAuthenticationReader {
                 authorization != null && !authorization.isBlank());
 
         if (authorization == null || authorization.isBlank()) {
-            throw new BadCredentialsException("Missing gRPC Authorization metadata");
+            return new AnonymousAuthenticationToken(
+                    "grpc-anonymous", "anonymousGrpcUser",
+                    List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))
+            );
         }
 
         if (!authorization.startsWith(BEARER_PREFIX)) {

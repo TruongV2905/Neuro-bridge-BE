@@ -69,7 +69,13 @@ app:
 
 # gRPC client configuration for calling identity-service
 grpc:
+  server:
+    port: 9090
+    enable-keep-alive: true
   client:
     identity-service:
       address: static://localhost:9091
+      negotiation-type: plaintext
+    jobpost-service:
+      address: static://localhost:9094
       negotiation-type: plaintext

@@ -1,9 +1,6 @@
 package com.nqt.identity_service.grpc;
 
-import com.identity.grpc.GetCurrentUserRequest;
-import com.identity.grpc.UserRequest;
-import com.identity.grpc.UserResponse;
-import com.identity.grpc.UserServiceGrpc;
+import com.identity.grpc.*;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.service.UserService;
 import io.grpc.Status;
@@ -101,6 +98,41 @@ public class UserGrpcServiceImpl extends UserServiceGrpc.UserServiceImplBase {
             );
         }
     }
+
+    @Override
+    public void getUserByCode(UserCodeRequest request, StreamObserver<UserResponse> responseObserver) {
+        try {
+            String code = request.getCode();
+
+            com.nqt.identity_service.dto.response.UserResponse user =
+                    userService.getUserByCode(code);
+
+            UserResponse response = toGrpcUserResponse(user);
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (GlobalException e) {
+            log.warn("Business error when getting user by code via gRPC: {}", e.getMessage());
+
+            responseObserver.onError(
+                    Status.NOT_FOUND
+                            .withDescription(e.getMessage())
+                            .asRuntimeException()
+            );
+
+        } catch (Exception e) {
+            log.error("Internal error when getting user by code via gRPC", e);
+
+            responseObserver.onError(
+                    Status.INTERNAL
+                            .withDescription("Failed to get user by code")
+                            .withCause(e)
+                            .asRuntimeException()
+            );
+        }
+    }
+
     private UserResponse toGrpcUserResponse(
             com.nqt.identity_service.dto.response.UserResponse user
     ) {

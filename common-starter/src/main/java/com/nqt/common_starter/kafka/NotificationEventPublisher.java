@@ -23,6 +23,8 @@ public class NotificationEventPublisher {
     public static final String PACKAGE_APPROVED    = "neural-bridge.package.approved";
     public static final String PACKAGE_REJECTED    = "neural-bridge.package.rejected";
     public static final String WORKSPACE_INVITED   = "neural-bridge.workspace.invited";
+    public static final String CONTRACT_SIGN_REQUIRED = "neural-bridge.contract.sign-required";
+    public static final String CONTRACT_FULLY_SIGNED  = "neural-bridge.contract.fully-signed";
 
     public void publish(String topic, NotificationEvent event) {
         event.setOccurredAt(LocalDateTime.now());

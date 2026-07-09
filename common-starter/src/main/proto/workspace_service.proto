@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package com.workspace.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.workspace.grpc";
+
+import "google/protobuf/timestamp.proto";
+
+service WorkspaceService {
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+}
+
+message CreateWorkspaceRequest {
+  string job_id = 1;
+  string escrow_id = 2;
+  string client_id = 3;
+  string expert_id = 4;
+  string project_name = 5;
+  google.protobuf.Timestamp deadline = 6;
+}
+
+message CreateWorkspaceResponse {
+  string workspace_id = 1;
+  bool success = 2;
+  string message = 3;
+}

@@ -22,7 +22,9 @@ public class NotificationEventConsumer {
                     "neural-bridge.package.rejected",
                     "neural-bridge.workspace.invited",
                     "neural-bridge.jobpost.applied",
-                    "neural-bridge.jobpost.accepted"
+                    "neural-bridge.jobpost.accepted",
+                    "neural-bridge.contract.sign-required",
+                    "neural-bridge.contract.fully-signed"
                     // Thêm topic mới ở đây
             },
             groupId = "notification-service"
