@@ -18,5 +18,7 @@
         <module>notification-service</module>
         <module>jobPost-service</module>
         <module>payment-service</module>
+        <module>chat-service</module>
+        <module>report-service</module>
     </modules>
 </project>

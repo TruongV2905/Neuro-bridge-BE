@@ -22,4 +22,7 @@ public interface ExpertApplyRepo extends JpaRepository<ExpertApply, UUID> {
     );
     List<ExpertApply> findAllByJobPost_Id(UUID jobPostId);
     Optional<ExpertApply> findByJobPost_IdAndStatus(UUID jobPostId, ApplyStatus status);
+
+    boolean existsByJobPost_IdAndExpertCode(UUID jobPostId, String expertCode);
+
 }

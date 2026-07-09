@@ -58,7 +58,6 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
             ProposalUnlockResponse response = ProposalUnlockResponse.newBuilder()
                     .setProposalUnlockId(proposalUnlock.getId().toString())
                     .setStrategyDetail(proposalUnlock.getStrategyDetail())
-                    .setUnlockCost(proposalUnlock.getUnlockCost().toPlainString())
                     .build();
 
             responseObserver.onNext(response);
@@ -83,7 +82,6 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
 
             ProposalUnlockRequest updateRequest = ProposalUnlockRequest.builder()
                     .strategyDetail(request.getStrategyDetail())
-                    .unlockCost(new BigDecimal(request.getUnlockCost()))
                     .build();
 
             com.nqt.jobPost_service.dto.response.ProposalUnlockResponse updated =
