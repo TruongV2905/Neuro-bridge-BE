@@ -34,7 +34,6 @@ public class ProposalStrategyService implements IProposalStrategyService {
         return ProposalStrategyResponse.builder()
                 .proposalUnlockId(UUID.fromString(grpcResponse.getProposalUnlockId()))
                 .strategyDetail(grpcResponse.getStrategyDetail())
-                .unlockCost(new BigDecimal(grpcResponse.getUnlockCost()))
                 .build();
     }
 
@@ -51,9 +50,8 @@ public class ProposalStrategyService implements IProposalStrategyService {
         // Lấy proposalUnlockId + unlockCost hiện tại để giữ nguyên unlockCost khi update
         var current = jobPostServiceClient.getApprovedProposalUnlock(workspace.getJobId());
         UUID proposalUnlockId = UUID.fromString(current.getProposalUnlockId());
-        BigDecimal currentUnlockCost = new BigDecimal(current.getUnlockCost());
 
-        var updated = jobPostServiceClient.updateProposalUnlock(proposalUnlockId, newStrategyDetail, currentUnlockCost);
+        var updated = jobPostServiceClient.updateProposalUnlock(proposalUnlockId, newStrategyDetail);
 
         return toResponse(updated);
     }
@@ -62,7 +60,6 @@ public class ProposalStrategyService implements IProposalStrategyService {
         return ProposalStrategyResponse.builder()
                 .proposalUnlockId(UUID.fromString(grpcResponse.getProposalUnlockId()))
                 .strategyDetail(grpcResponse.getStrategyDetail())
-                .unlockCost(new BigDecimal(grpcResponse.getUnlockCost()))
                 .build();
     }
 
