@@ -72,6 +72,9 @@ grpc:
     workspace-service:
       address: static://localhost:9090
       negotiation-type: plaintext
+    payment-service:
+      address: static://localhost:9095
+      negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
 app:

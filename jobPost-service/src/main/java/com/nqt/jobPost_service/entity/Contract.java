@@ -70,4 +70,6 @@ public class Contract {
 
     @UpdateTimestamp
     LocalDateTime updatedAt;
+
+    UUID escrowId;
 }

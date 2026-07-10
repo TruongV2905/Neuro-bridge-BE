@@ -252,4 +252,10 @@ public class UserWalletService implements IUserWallet {
         UserWallet savedWallet = userWalletRepository.save(currentWallet);
         return userWalletMapper.toResponse(savedWallet);
     }
+
+    public UserWalletResponse getByUserCode(String userCode) {
+        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
+                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
+        return userWalletMapper.toResponse(wallet);
+    }
 }

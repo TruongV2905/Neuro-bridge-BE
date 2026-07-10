@@ -5,6 +5,7 @@ import com.nqt.payment_service.constant.PaymentReferenceType;
 import com.nqt.payment_service.constant.TransactionType;
 import com.nqt.payment_service.dto.request.PaymentTransactionFilterRequest;
 import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
+import com.nqt.payment_service.dto.response.PayEscrowResult;
 import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
 
 import java.math.BigDecimal;
@@ -72,4 +73,34 @@ public interface IPaymentTransaction {
             String projectId
     );
 
+    // ---------------------------------------------------------------------
+    // SEPAY / VNPay flows — tạo PENDING trước, xử lý trong callback
+    // ---------------------------------------------------------------------
+
+    // 8.1 Mua AI Service bằng VNPay
+    PaymentTransactionResponse transactionAvailableServiceByVNPay(
+            BigDecimal amount,
+            String description,
+            String expertCode,
+            String aiServiceId
+    );
+
+    // 8.2 Mua Proposal bằng VNPay
+    PaymentTransactionResponse transactionProposalUnlockByVNPay(
+            BigDecimal amount,
+            String description,
+            String expertCode,
+            String proposalId
+    );
+
+    // 8.4 Nạp tiền vào Escrow bằng VNPay
+    PaymentTransactionResponse transactionProjectByVNPay(
+            BigDecimal amount,
+            String description,
+            String escrowId,
+            String projectId
+    );
+
+    PayEscrowResult payOrInitProjectEscrow(UUID jobPostId, String clientCode,
+                                           String expertCode, BigDecimal amount);
 }

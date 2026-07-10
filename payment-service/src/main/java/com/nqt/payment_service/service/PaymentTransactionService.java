@@ -5,14 +5,18 @@ import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.response.PageResponse;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.common_starter.util.PageUtil;
+import com.nqt.payment_service.constant.EscrowStatus;
 import com.nqt.payment_service.constant.PaymentReferenceType;
 import com.nqt.payment_service.constant.TransactionStatus;
 import com.nqt.payment_service.constant.TransactionType;
 import com.nqt.payment_service.dto.request.PaymentTransactionFilterRequest;
 import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
 import com.nqt.payment_service.dto.request.SubPaymentTransactionFilterRequest;
+import com.nqt.payment_service.dto.response.PayEscrowResult;
 import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
+import com.nqt.payment_service.dto.response.UserWalletResponse;
 import com.nqt.payment_service.entity.PaymentTransaction;
+import com.nqt.payment_service.entity.ProjectEscrow;
 import com.nqt.payment_service.httpclient.IdentityServiceClient;
 import com.nqt.payment_service.httpclient.JobPostServiceClient;
 import com.nqt.payment_service.mapper.PaymentTransactionMapper;
@@ -333,6 +337,104 @@ public class PaymentTransactionService implements IPaymentTransaction {
                 amount,
                 null
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // 8.1 Mua AI Service bằng VNPay (SEPAY)
+    // ---------------------------------------------------------------------
+
+    @Override
+    public PaymentTransactionResponse transactionAvailableServiceByVNPay(
+            BigDecimal amount,
+            String description,
+            String expertCode,
+            String aiServiceId
+    ) {
+        throw new UnsupportedOperationException(
+                "transactionAvailableServiceByVNPay not implemented yet — " +
+                "wire up SEPAY callback: create PENDING, deposit on success"
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // 8.2 Mua Proposal bằng VNPay (SEPAY)
+    // ---------------------------------------------------------------------
+
+    @Override
+    public PaymentTransactionResponse transactionProposalUnlockByVNPay(
+            BigDecimal amount,
+            String description,
+            String expertCode,
+            String proposalId
+    ) {
+        throw new UnsupportedOperationException(
+                "transactionProposalUnlockByVNPay not implemented yet — " +
+                "wire up SEPAY callback: create PENDING, deposit on success"
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // 8.4 Nạp tiền vào Escrow bằng VNPay (SEPAY)
+    // ---------------------------------------------------------------------
+
+    @Override
+    public PaymentTransactionResponse transactionProjectByVNPay(
+            BigDecimal amount,
+            String description,
+            String escrowId,
+            String projectId
+    ) {
+        throw new UnsupportedOperationException(
+                "transactionProjectByVNPay not implemented yet — " +
+                "wire up SEPAY callback: create PENDING, escrow deposit on success"
+        );
+    }
+
+    @Override
+    @Transactional
+    public PayEscrowResult payOrInitProjectEscrow(UUID jobPostId, String clientCode,
+                                                  String expertCode, BigDecimal amount) {
+
+        ProjectEscrow escrow = projectEscrowService.findOrCreateByJobPost(jobPostId, clientCode, expertCode);
+
+        if (escrow.getStatus() == EscrowStatus.FUNDED) {
+            return PayEscrowResult.builder()
+                    .escrowId(escrow.getId())
+                    .status(EscrowStatus.FUNDED)
+                    .message("Ví chung đã được thanh toán trước đó.")
+                    .build();
+        }
+
+        UserWalletResponse clientWallet = userWalletService.getByUserCode(clientCode);
+
+        if (clientWallet.getWalletBalance().compareTo(amount) < 0) {
+            BigDecimal shortfall = amount.subtract(clientWallet.getWalletBalance());
+            return PayEscrowResult.builder()
+                    .escrowId(escrow.getId())
+                    .status(EscrowStatus.PENDING)
+                    .shortfallAmount(shortfall)
+                    .message("Ví không đủ tiền, cần nạp thêm " + shortfall + " qua VNPay rồi thuê lại.")
+                    .build();
+        }
+
+        // Đủ tiền: trừ ví client + fund escrow, dùng lại payment() thống nhất
+        payment(
+                clientCode,
+                null,
+                TransactionType.PROJECT_ESCROW_DEPOSIT,
+                escrow.getId().toString(),
+                PaymentReferenceType.PROJECT,
+                amount,   // deductibleAmount -> trừ ví client
+                amount,   // receivedAmount -> nạp vào escrow (referenceType=PROJECT)
+                null
+        );
+        projectEscrowService.markFunded(escrow.getId());
+
+        return PayEscrowResult.builder()
+                .escrowId(escrow.getId())
+                .status(EscrowStatus.FUNDED)
+                .message("Thanh toán ví chung thành công.")
+                .build();
     }
 
     // ---------------------------------------------------------------------

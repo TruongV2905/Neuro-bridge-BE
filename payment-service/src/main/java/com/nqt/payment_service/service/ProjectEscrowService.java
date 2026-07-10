@@ -108,7 +108,8 @@ public class ProjectEscrowService implements IProjectEscrow {
                 ));
 
         if (escrow.getStatus() != EscrowStatus.FUNDED
-                && escrow.getStatus() != EscrowStatus.HELD) {
+                && escrow.getStatus() != EscrowStatus.HELD
+                && escrow.getStatus() != EscrowStatus.PENDING) {
             throw new GlobalException(
                     ErrorCode.DATA_INVALID.getCode(),
                     "Cannot deposit into escrow with status: " + escrow.getStatus()
@@ -173,6 +174,38 @@ public class ProjectEscrowService implements IProjectEscrow {
 
         log.info("Escrow refunded: escrowId={}", escrowId);
         return projectEscrowMapper.toResponse(saved);
+    }
+
+
+    @Override
+    @Transactional
+    public ProjectEscrow findOrCreateByJobPost(UUID jobPostId, String clientCode, String expertCode) {
+        return projectEscrowRepo.findByJobPostId(jobPostId)
+                .orElseGet(() -> projectEscrowRepo.save(ProjectEscrow.builder()
+                        .jobPostId(jobPostId)
+                        .clientCode(clientCode)
+                        .expertCode(expertCode)
+                        .amount(BigDecimal.ZERO)
+                        .heldAmount(BigDecimal.ZERO)
+                        .platformFee(BigDecimal.ZERO)
+                        .status(EscrowStatus.PENDING) // ⚠️ cần EscrowStatus có PENDING, xem ghi chú cuối
+                        .build()));
+    }
+
+    @Override
+    public ProjectEscrow getEntity(UUID id) {
+        return projectEscrowRepo.findById(id)
+                .orElseThrow(() -> new GlobalException(
+                        ErrorCode.NOT_FOUND.getCode(),
+                        "ProjectEscrow not found with id: " + id));
+    }
+
+    @Override
+    @Transactional
+    public void markFunded(UUID escrowId) {
+        ProjectEscrow escrow = getEntity(escrowId);
+        escrow.setStatus(EscrowStatus.FUNDED);
+        projectEscrowRepo.save(escrow);
     }
 
     // ---------------------------------------------------------------------

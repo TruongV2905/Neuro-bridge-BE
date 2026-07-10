@@ -4,6 +4,7 @@ import com.nqt.jobPost_service.constant.ContractStatus;
 import com.nqt.jobPost_service.entity.Contract;
 import com.nqt.jobPost_service.entity.ProposalUnlock;
 import com.nqt.jobPost_service.service.impl.IContractService;
+import com.payment.grpc.PaymentServiceGrpc;
 import org.springframework.security.core.Authentication;
 import com.google.protobuf.Timestamp;
 import com.nqt.jobPost_service.constant.ApplyStatus;
@@ -44,6 +45,9 @@ public class HireService implements IHireService {
 
     @GrpcClient("workspace-service")
     private WorkspaceServiceGrpc.WorkspaceServiceBlockingStub workspaceStub;
+
+    @GrpcClient("payment-service")
+    private PaymentServiceGrpc.PaymentServiceBlockingStub paymentStub;
 
     @Override
     @Transactional
@@ -107,7 +111,44 @@ public class HireService implements IHireService {
                     .build();
         }
 
-        // === LẦN GỌI SAU (đã FULLY_SIGNED): gọi gRPC tạo workspace như logic cũ ===
+        return payEscrowThenCreateWorkspace(jobPost, expertApply, contract);
+    }
+
+    private HireResponse payEscrowThenCreateWorkspace(JobPost jobPost, ExpertApply expertApply, Contract contract) {
+
+        com.payment.grpc.PayProjectEscrowRequest request = com.payment.grpc.PayProjectEscrowRequest.newBuilder()
+                .setJobPostId(jobPost.getId().toString())
+                .setClientCode(jobPost.getCreatorCode())
+                .setExpertCode(expertApply.getExpertCode())
+                .setAmount(contract.getUnlockCost().toPlainString())
+                .build();
+
+        com.payment.grpc.PayProjectEscrowResponse response;
+        try {
+            response = paymentStub.payProjectEscrow(request);
+        } catch (Exception e) {
+            log.error("❌ Lỗi khi gọi gRPC tới payment-service", e);
+            throw new RuntimeException("Không thể thanh toán vào ví chung. Vui lòng thử lại.", e);
+        }
+
+        if (!response.getSuccess()) {
+            throw new RuntimeException("Thanh toán ví chung thất bại: " + response.getMessage());
+        }
+
+        contractService.markEscrowId(contract.getId(), UUID.fromString(response.getEscrowId()));
+
+        if ("PENDING".equals(response.getStatus())) {
+            return HireResponse.builder()
+                    .contractId(contract.getId())
+                    .jobPostId(jobPost.getId())
+                    .expertCode(expertApply.getExpertCode())
+                    .shortfallAmount(new java.math.BigDecimal(response.getShortfallAmount()))
+                    .message("Ví chung chưa đủ tiền. Vui lòng nạp thêm " + response.getShortfallAmount()
+                            + " qua VNPay rồi bấm Thuê Expert lại.")
+                    .build();
+        }
+
+        // status == FUNDED -> tạo workspace, tái sử dụng nguyên method createWorkspaceStep cũ
         return createWorkspaceStep(jobPost, expertApply, contract);
     }
 
@@ -168,7 +209,7 @@ public class HireService implements IHireService {
 
         CreateWorkspaceRequest request = CreateWorkspaceRequest.newBuilder()
                 .setJobId(jobPost.getId().toString())
-                .setEscrowId("") // chưa có payment-service
+                .setEscrowId(contract.getEscrowId() != null ? contract.getEscrowId().toString() : "")
                 .setClientId(jobPost.getCreatorCode())
                 .setExpertId(expertApply.getExpertCode())
                 .setProjectName(jobPost.getTitle())

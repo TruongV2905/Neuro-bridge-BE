@@ -10,6 +10,7 @@ import com.nqt.jobPost_service.entity.Contract;
 import com.nqt.jobPost_service.httpclient.IdentityServiceClient;
 import com.nqt.jobPost_service.repository.ContractRepository;
 import com.nqt.jobPost_service.service.impl.IContractService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -203,5 +204,15 @@ public class ContractService implements IContractService {
         Contract contract = getById(contractId);
         contract.setWorkspaceId(workspaceId);
         return contractRepository.save(contract);
+    }
+
+    @Override
+    @Transactional
+    public void markEscrowId(UUID contractId, UUID escrowId) {
+        Contract contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new EntityNotFoundException("Contract không tồn tại: " + contractId));
+
+        contract.setEscrowId(escrowId);
+        contractRepository.save(contract);
     }
 }

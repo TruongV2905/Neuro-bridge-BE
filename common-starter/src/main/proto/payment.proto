@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package com.payment.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.payment.grpc";
+
+service PaymentService {
+  rpc PayProjectEscrow (PayProjectEscrowRequest) returns (PayProjectEscrowResponse);
+}
+
+message PayProjectEscrowRequest {
+  string jobPostId = 1;
+  string clientCode = 2;
+  string expertCode = 3;
+  string amount = 4; // BigDecimal dạng string để không mất precision
+}
+
+message PayProjectEscrowResponse {
+  bool success = 1;
+  string status = 2;          // FUNDED | PENDING
+  string escrowId = 3;
+  string message = 4;
+  string shortfallAmount = 5; // chỉ có giá trị khi status = PENDING
+}
