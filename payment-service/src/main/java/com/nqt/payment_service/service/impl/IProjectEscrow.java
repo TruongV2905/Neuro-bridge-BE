@@ -12,4 +12,7 @@ public interface IProjectEscrow {
     ProjectEscrow create(ProjectEscrowRequest projectEscrowRequest);
 
     ProjectEscrowResponse getById(UUID id);
+    ProjectEscrow findOrCreateByJobPost(UUID jobPostId, String clientCode, String expertCode);
+    ProjectEscrow getEntity(UUID id);
+    void markFunded(UUID escrowId);
 }

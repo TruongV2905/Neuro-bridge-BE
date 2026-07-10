@@ -5,6 +5,7 @@ import com.nqt.payment_service.constant.PaymentReferenceType;
 import com.nqt.payment_service.constant.TransactionType;
 import com.nqt.payment_service.dto.request.PaymentTransactionFilterRequest;
 import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
+import com.nqt.payment_service.dto.response.PayEscrowResult;
 import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
 
 import java.math.BigDecimal;
@@ -108,4 +109,7 @@ public interface IPaymentTransaction {
             String escrowId,
             String projectId
     );
+
+    PayEscrowResult payOrInitProjectEscrow(UUID jobPostId, String clientCode,
+                                           String expertCode, BigDecimal amount);
 }

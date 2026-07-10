@@ -1,5 +1,11 @@
 package com.nqt.payment_service.constant;
 public enum EscrowStatus {
+
+    /**
+     * Escrow vừa được tạo cho job post, chưa có tiền nạp vào.
+     */
+    PENDING,
+
     /**
      * Tiền đã được client nạp vào escrow và đang bị giữ.
      */
@@ -24,7 +30,6 @@ public enum EscrowStatus {
      * Escrow đang có tranh chấp giữa client và expert.
      */
     DISPUTED,
-
 
     CANCELLED
 }

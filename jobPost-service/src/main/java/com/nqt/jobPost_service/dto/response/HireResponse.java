@@ -3,6 +3,7 @@ package com.nqt.jobPost_service.dto.response;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -13,4 +14,5 @@ public class HireResponse {
     private UUID jobPostId;
     private String expertCode;
     private String message;
+    private BigDecimal shortfallAmount;
 }
