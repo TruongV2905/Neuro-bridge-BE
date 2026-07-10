@@ -38,6 +38,7 @@ public class ApplyJobPostService implements IApplyJobPost {
     JobPostRepo  jobPostRepo;
     ExpertApplyMapper expertApplyMapper;
     ProposalMapper proposalMapper;
+    ProposalUnlockMapper proposalUnlockMapper;
 
     @Override
     public void appyJobPost(ApplyJobPostRequest request) {
@@ -99,8 +100,7 @@ public class ApplyJobPostService implements IApplyJobPost {
             ProposalUnlock proposalUnlock = proposal.getProposalUnlock();
             if (proposalUnlock != null) {
                 proposalResponse.setUnlockCost(proposalUnlock.getUnlockCost());
-                proposalUnlockResponse =
-                        proposalUnlockService.getById(proposalUnlock.getId());
+                proposalUnlockResponse = proposalUnlockMapper.toResponse(proposalUnlock);
             }
         }
 
