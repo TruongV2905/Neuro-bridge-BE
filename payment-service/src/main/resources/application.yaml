@@ -52,6 +52,9 @@ grpc:
     identity-service:
       address: discovery:///identity-service
       negotiation-type: plaintext
+    jobpost-service:
+      address: discovery:///jobpost-service
+      negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
 app:

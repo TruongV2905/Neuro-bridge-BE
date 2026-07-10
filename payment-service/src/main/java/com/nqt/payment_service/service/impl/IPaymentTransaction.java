@@ -51,15 +51,6 @@ public interface IPaymentTransaction {
             UUID transactionId
     );
 
-    // ---------------------------------------------------------------------
-    // 6.1 Mua AI Service bằng ví
-    // ---------------------------------------------------------------------
-    PaymentTransactionResponse transactionAvailableServiceByWallet(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String aiServiceId
-    );
 
     // ---------------------------------------------------------------------
     // 6.2 Mua Proposal bằng ví

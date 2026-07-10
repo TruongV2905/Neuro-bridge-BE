@@ -9,9 +9,18 @@ message JobIdRequest {
   string job_id = 1;
 }
 
+message ProposalIdRequest {
+  string proposal_id = 1;
+}
+
 message ProposalUnlockResponse {
   string proposal_unlock_id = 1;
   string strategy_detail = 2;
+}
+
+message ProposalUnlockStatusResponse {
+  string proposal_id = 1;
+  bool unlocked = 2;
 }
 
 message ProposalUnlockUpdateRequest {
@@ -22,4 +31,5 @@ message ProposalUnlockUpdateRequest {
 service ProposalUnlockGrpcService {
   rpc GetApprovedProposalUnlock(JobIdRequest) returns (ProposalUnlockResponse);
   rpc UpdateProposalUnlock(ProposalUnlockUpdateRequest) returns (ProposalUnlockResponse);
+  rpc UnlockProposal(ProposalIdRequest) returns (ProposalUnlockStatusResponse);
 }

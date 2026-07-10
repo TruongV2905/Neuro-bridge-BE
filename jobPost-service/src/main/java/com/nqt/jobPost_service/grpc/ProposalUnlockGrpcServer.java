@@ -1,8 +1,10 @@
 package com.nqt.jobPost_service.grpc;
 
 import com.jobpost.grpc.JobIdRequest;
+import com.jobpost.grpc.ProposalIdRequest;
 import com.jobpost.grpc.ProposalUnlockGrpcServiceGrpc;
 import com.jobpost.grpc.ProposalUnlockResponse;
+import com.jobpost.grpc.ProposalUnlockStatusResponse;
 import com.nqt.jobPost_service.constant.ApplyStatus;
 import com.nqt.jobPost_service.dto.request.ProposalUnlockRequest;
 import com.nqt.jobPost_service.entity.ExpertApply;
@@ -14,6 +16,7 @@ import com.nqt.jobPost_service.service.ProposalUnlockService;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
 
 import java.math.BigDecimal;
@@ -21,6 +24,7 @@ import java.util.UUID;
 
 @GrpcService
 @RequiredArgsConstructor
+@Slf4j
 public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.ProposalUnlockGrpcServiceImplBase {
 
     private final ProposalUnlockService proposalUnlockService;
@@ -100,6 +104,45 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
                     .withDescription("Invalid input: " + e.getMessage())
                     .asRuntimeException());
         } catch (Exception e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Internal error: " + e.getMessage())
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void unlockProposal(ProposalIdRequest request,
+                               StreamObserver<ProposalUnlockStatusResponse> responseObserver) {
+        try {
+            UUID proposalId = UUID.fromString(request.getProposalId());
+
+            Proposal proposal = proposalRepo.findById(proposalId)
+                    .orElseThrow(() -> Status.NOT_FOUND
+                            .withDescription("Proposal not found with id: " + proposalId)
+                            .asRuntimeException());
+
+            if (proposal.isLocked()) {
+                proposal.setLocked(false);
+                proposalRepo.save(proposal);
+                log.info("Unlocked proposal id={}", proposalId);
+            } else {
+                log.info("Proposal id={} was already unlocked, no-op", proposalId);
+            }
+
+            ProposalUnlockStatusResponse response = ProposalUnlockStatusResponse.newBuilder()
+                    .setProposalId(proposalId.toString())
+                    .setUnlocked(true)
+                    .build();
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("Invalid proposalId format: " + e.getMessage())
+                    .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to unlock proposal id={}", request.getProposalId(), e);
             responseObserver.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .asRuntimeException());

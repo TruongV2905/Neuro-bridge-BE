@@ -14,6 +14,7 @@ import com.nqt.payment_service.dto.request.SubPaymentTransactionFilterRequest;
 import com.nqt.payment_service.dto.response.PaymentTransactionResponse;
 import com.nqt.payment_service.entity.PaymentTransaction;
 import com.nqt.payment_service.httpclient.IdentityServiceClient;
+import com.nqt.payment_service.httpclient.JobPostServiceClient;
 import com.nqt.payment_service.mapper.PaymentTransactionMapper;
 import com.nqt.payment_service.repository.PaymentTransactionRepo;
 import com.nqt.payment_service.service.impl.IPaymentTransaction;
@@ -43,6 +44,7 @@ public class PaymentTransactionService implements IPaymentTransaction {
     IdentityServiceClient identityServiceClient;
     UserWalletService userWalletService;
     ProjectEscrowService projectEscrowService;
+    JobPostServiceClient jobPostServiceClient;
     BigDecimal SYSTEM_FEE_RATE = new BigDecimal("0.10");
 
     // ---------------------------------------------------------------------
@@ -294,58 +296,16 @@ public class PaymentTransactionService implements IPaymentTransaction {
         log.info("Proposal payment done: client={} expert={} proposalId={} amount={} fee={}",
                 clientCode, expertCode, proposalId, amount, systemFee);
 
-        return mainTx;
-    }
-
-    // ---------------------------------------------------------------------
-    // 6.1 Mua AI Service bằng ví
-    // ---------------------------------------------------------------------
-
-    @Override
-    @Transactional
-    public PaymentTransactionResponse transactionAvailableServiceByWallet(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String aiServiceId
-    ) {
-        UserResponse client = identityServiceClient.getCurrentUser();
-        String clientCode = client.getCode();
-
-        BigDecimal[] split = calculateFee(amount);
-        BigDecimal systemFee = split[0];
-        BigDecimal expertReceived = split[1];
-
-        // Thanh toán chính: client → expert
-        PaymentTransactionResponse mainTx = payment(
-                clientCode,
-                expertCode,
-                TransactionType.AI_SERVICE_PAYMENT,
-                aiServiceId,
-                PaymentReferenceType.AI_SERVICE,
-                amount,
-                expertReceived,
-                null
-        );
-
-        // Thu phí hệ thống: client → admin
-        String adminCode = userWalletService.getWalletAdmin().getUserCode();
-        payment(
-                clientCode,
-                adminCode,
-                TransactionType.SYSTEM_FEE,
-                null,
-                PaymentReferenceType.ADMIN_ACTION,
-                BigDecimal.ZERO,
-                systemFee,
-                null
-        );
-
-        log.info("AI Service payment done: client={} expert={} aiServiceId={} amount={} fee={}",
-                clientCode, expertCode, aiServiceId, amount, systemFee);
+        try {
+            boolean unlocked = jobPostServiceClient.unlockProposal(proposalId);
+            log.info("Proposal unlock via gRPC success: proposalId={} unlocked={}", proposalId, unlocked);
+        } catch (Exception e) {
+            log.error("Failed to unlock proposal via gRPC: proposalId={}", proposalId, e);
+        }
 
         return mainTx;
     }
+
 
     // ---------------------------------------------------------------------
     // 7.1 Nạp tiền vào Escrow (bằng ví)
@@ -375,8 +335,6 @@ public class PaymentTransactionService implements IPaymentTransaction {
         );
     }
 
-
-
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
@@ -405,7 +363,6 @@ public class PaymentTransactionService implements IPaymentTransaction {
             case WALLET_DEPOSIT -> "Nap tien vao vi";
             case WALLET_WITHDRAW -> "Rut tien khoi vi";
             case PROPOSAL_PAYMENT -> "Thanh toan mua proposal";
-            case AI_SERVICE_PAYMENT -> "Thanh toan mua AI service";
             case PROJECT_ESCROW_DEPOSIT -> "Nap tien vao escrow du an";
             case PROJECT_RELEASE -> "Release tien tu escrow cho expert";
             case PROJECT_REFUND -> "Hoan tien tu escrow ve client";

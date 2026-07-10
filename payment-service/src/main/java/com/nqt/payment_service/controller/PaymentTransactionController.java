@@ -13,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @RestController
@@ -23,6 +24,19 @@ public class PaymentTransactionController {
 
     PaymentTransactionService paymentTransactionService;
 
+    // ---------------------------------------------------------------------
+    // Base CRUD
+    // ---------------------------------------------------------------------
+
+    @PostMapping
+    public ResponseEntity<APIResponse<PaymentTransactionResponse>> create(
+            @Valid @RequestBody PaymentTransactionRequest request) {
+        return ResponseEntity.ok(APIResponse.response(
+                201,
+                "Create payment transaction successfully",
+                paymentTransactionService.create(request)
+        ));
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<APIResponse<PaymentTransactionResponse>> getById(@PathVariable UUID id) {
@@ -53,6 +67,10 @@ public class PaymentTransactionController {
         ));
     }
 
+    // ---------------------------------------------------------------------
+    // Status transitions
+    // ---------------------------------------------------------------------
+
     @PatchMapping("/{id}/success")
     public ResponseEntity<APIResponse<PaymentTransactionResponse>> markSuccess(@PathVariable UUID id) {
         return ResponseEntity.ok(APIResponse.response(
@@ -77,6 +95,46 @@ public class PaymentTransactionController {
                 200,
                 "Cancel transaction",
                 paymentTransactionService.cancel(id)
+        ));
+    }
+
+    // ---------------------------------------------------------------------
+    // Business operations
+    // ---------------------------------------------------------------------
+
+    /**
+     * Mua / mở khóa proposal chi tiết của expert bằng ví của client hiện tại.
+     */
+    @PostMapping("/proposal/pay-by-wallet")
+    public ResponseEntity<APIResponse<PaymentTransactionResponse>> payProposalByWallet(
+            @RequestParam BigDecimal amount,
+            @RequestParam(required = false) String description,
+            @RequestParam String expertCode,
+            @RequestParam String proposalId) {
+        return ResponseEntity.ok(APIResponse.response(
+                200,
+                "Pay proposal by wallet successfully",
+                paymentTransactionService.transactionProposalUnlockByWallet(
+                        amount, description, expertCode, proposalId
+                )
+        ));
+    }
+
+    /**
+     * Nạp tiền vào Escrow của project bằng ví của client hiện tại.
+     */
+    @PostMapping("/project/deposit-by-wallet")
+    public ResponseEntity<APIResponse<PaymentTransactionResponse>> depositProjectByWallet(
+            @RequestParam BigDecimal amount,
+            @RequestParam(required = false) String description,
+            @RequestParam String escrowId,
+            @RequestParam String projectId) {
+        return ResponseEntity.ok(APIResponse.response(
+                200,
+                "Deposit to project escrow by wallet successfully",
+                paymentTransactionService.transactionProjectByWallet(
+                        amount, description, escrowId, projectId
+                )
         ));
     }
 }
