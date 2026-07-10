@@ -69,9 +69,7 @@ public class ProposalUnlockService implements IProposalUnlock {
                         "Proposal Unlock " + ErrorCode.NOT_FOUND.getMessage()
                 ));
 
-        if(!validateGetProposalUnlock(userResponse.getCode(),proposalUnlock)){
-            return null;
-        }
+        validateGetProposalUnlock(userResponse.getCode(), proposalUnlock);
 
         return proposalUnlockMapper.toResponse(proposalUnlock);
     }
@@ -85,40 +83,48 @@ public class ProposalUnlockService implements IProposalUnlock {
                         ErrorCode.NOT_FOUND.getCode(),
                         "Proposal Unlock " + ErrorCode.NOT_FOUND.getMessage()
                 ));
+
         validateGetProposalUnlock(userResponse.getCode(), proposalUnlock);
 
         return proposalUnlockMapper.toResponse(proposalUnlock);
     }
 
-    private boolean validateGetProposalUnlock(String code, ProposalUnlock proposalUnlock) {
-        if (code == null || proposalUnlock == null) {
-            return false;
+    private void validateGetProposalUnlock(String code, ProposalUnlock proposalUnlock) {
+        if (code == null) {
+            throw new GlobalException(ErrorCode.UNAUTHORIZED.getCode(), ErrorCode.UNAUTHORIZED.getMessage());
         }
 
         Proposal proposal = proposalUnlock.getProposal();
         if (proposal == null) {
-            return false;
+            throw new GlobalException(ErrorCode.NOT_FOUND.getCode(), "Proposal " + ErrorCode.NOT_FOUND.getMessage());
         }
 
         ExpertApply expertApply = proposal.getExpertApply();
         if (expertApply == null) {
-            return false;
+            throw new GlobalException(ErrorCode.NOT_FOUND.getCode(), "ExpertApply " + ErrorCode.NOT_FOUND.getMessage());
         }
 
         JobPost jobPost = expertApply.getJobPost();
         if (jobPost == null) {
-            return false;
+            throw new GlobalException(ErrorCode.NOT_FOUND.getCode(), "JobPost " + ErrorCode.NOT_FOUND.getMessage());
         }
 
         boolean isProposalCreator = code.equals(expertApply.getExpertCode());
         if (isProposalCreator) {
-            return true;
+            return; // expert luôn được xem nội dung mình tạo, không cần check isLocked
         }
 
         boolean isJobPostCreator = code.equals(jobPost.getCreatorCode());
+        if (!isJobPostCreator) {
+            throw new GlobalException(ErrorCode.UNAUTHORIZED.getCode(), ErrorCode.UNAUTHORIZED.getMessage());
+        }
 
-        // Client chỉ được xem khi proposal đã unlock
-        return isJobPostCreator && !proposal.isLocked();
+        if (proposal.isLocked()) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Bạn cần thanh toán phí để xem chi tiết proposal này."
+            );
+        }
     }
 
     @Override
