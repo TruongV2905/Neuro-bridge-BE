@@ -1,10 +1,6 @@
 package com.nqt.jobPost_service.grpc;
 
-import com.jobpost.grpc.JobIdRequest;
-import com.jobpost.grpc.ProposalIdRequest;
-import com.jobpost.grpc.ProposalUnlockGrpcServiceGrpc;
-import com.jobpost.grpc.ProposalUnlockResponse;
-import com.jobpost.grpc.ProposalUnlockStatusResponse;
+import com.jobpost.grpc.*;
 import com.nqt.jobPost_service.constant.ApplyStatus;
 import com.nqt.jobPost_service.dto.request.ProposalUnlockRequest;
 import com.nqt.jobPost_service.entity.ExpertApply;
@@ -143,6 +139,66 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
                     .asRuntimeException());
         } catch (Exception e) {
             log.error("Failed to unlock proposal id={}", request.getProposalId(), e);
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Internal error: " + e.getMessage())
+                    .asRuntimeException());
+        }
+    }
+
+
+    @Override
+    public void createProposalUnlockForJob(CreateProposalUnlockRequest request,
+                                           StreamObserver<ProposalUnlockResponse> responseObserver) {
+        try {
+            UUID jobId = UUID.fromString(request.getJobId());
+
+            ExpertApply expertApply = expertApplyRepo
+                    .findByJobPost_IdAndStatus(jobId, ApplyStatus.APPROVED)
+                    .orElseThrow(() -> Status.NOT_FOUND
+                            .withDescription("Approved ExpertApply not found for jobId: " + jobId)
+                            .asRuntimeException());
+
+            Proposal proposal = expertApply.getProposal();
+
+            if (proposal != null && proposal.getProposalUnlock() != null) {
+                responseObserver.onError(Status.ALREADY_EXISTS
+                        .withDescription("ProposalUnlock already exists for this job, use update instead")
+                        .asRuntimeException());
+                return;
+            }
+
+            if (proposal == null) {
+                proposal = Proposal.builder()
+                        .title(expertApply.getJobPost().getTitle())
+                        .isLocked(false)
+                        .build();
+            }
+
+            ProposalUnlock proposalUnlock = ProposalUnlock.builder()
+                    .strategyDetail(request.getStrategyDetail())
+                    .unlockCost(null)
+                    .build();
+
+            proposal.setProposalUnlock(proposalUnlock);
+            expertApply.setProposal(proposal);
+
+            ExpertApply savedExpertApply = expertApplyRepo.save(expertApply);
+            ProposalUnlock savedProposalUnlock = savedExpertApply.getProposal().getProposalUnlock();
+
+            ProposalUnlockResponse response = ProposalUnlockResponse.newBuilder()
+                    .setProposalUnlockId(savedProposalUnlock.getId().toString())
+                    .setStrategyDetail(savedProposalUnlock.getStrategyDetail())
+                    .build();
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("Invalid input: " + e.getMessage())
+                    .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to create proposal unlock for jobId={}", request.getJobId(), e);
             responseObserver.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .asRuntimeException());

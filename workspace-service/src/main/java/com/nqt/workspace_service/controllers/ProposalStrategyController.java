@@ -3,6 +3,7 @@ package com.nqt.workspace_service.controllers;
 import com.nqt.workspace_service.dto.request.ProposalStrategyUpdateRequest;
 import com.nqt.workspace_service.dto.response.ProposalStrategyResponse;
 import com.nqt.workspace_service.services.implement.ProposalStrategyService;
+import com.nqt.workspace_service.services.interfaces.IProposalStrategyService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProposalStrategyController {
 
-    private final ProposalStrategyService proposalStrategyService;
+    private final IProposalStrategyService proposalStrategyService;
 
     @GetMapping("/{workspaceId}/proposal-strategy")
     @PreAuthorize("isAuthenticated()")

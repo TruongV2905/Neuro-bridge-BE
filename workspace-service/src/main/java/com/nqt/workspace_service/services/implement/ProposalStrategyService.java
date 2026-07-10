@@ -7,13 +7,17 @@ import com.nqt.workspace_service.entities.Workspace;
 import com.nqt.workspace_service.grpc.JobPostServiceClient;
 import com.nqt.workspace_service.repositories.WorkspaceRepository;
 import com.nqt.workspace_service.services.interfaces.IProposalStrategyService;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProposalStrategyService implements IProposalStrategyService {
 
     private final WorkspaceRepository workspaceRepository;
@@ -29,12 +33,21 @@ public class ProposalStrategyService implements IProposalStrategyService {
 
         validateWorkspaceMember(workspace, currentUserId);
 
-        var grpcResponse = jobPostServiceClient.getApprovedProposalUnlock(workspace.getJobId());
+        try {
+            var grpcResponse = jobPostServiceClient.getApprovedProposalUnlock(workspace.getJobId());
+            return toResponse(grpcResponse);
 
-        return ProposalStrategyResponse.builder()
-                .proposalUnlockId(UUID.fromString(grpcResponse.getProposalUnlockId()))
-                .strategyDetail(grpcResponse.getStrategyDetail())
-                .build();
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                log.info("Chưa có proposal cho jobId={}, trả về rỗng", workspace.getJobId());
+                return ProposalStrategyResponse.builder()
+                        .proposalUnlockId(null)
+                        .strategyDetail(null)
+                        .unlockCost(null)
+                        .build();
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -47,13 +60,21 @@ public class ProposalStrategyService implements IProposalStrategyService {
 
         validateWorkspaceMember(workspace, currentUserId);
 
-        // Lấy proposalUnlockId + unlockCost hiện tại để giữ nguyên unlockCost khi update
-        var current = jobPostServiceClient.getApprovedProposalUnlock(workspace.getJobId());
-        UUID proposalUnlockId = UUID.fromString(current.getProposalUnlockId());
+        try {
+            var current = jobPostServiceClient.getApprovedProposalUnlock(workspace.getJobId());
+            UUID proposalUnlockId = UUID.fromString(current.getProposalUnlockId());
+            var updated = jobPostServiceClient.updateProposalUnlock(proposalUnlockId, newStrategyDetail);
+            return toResponse(updated);
 
-        var updated = jobPostServiceClient.updateProposalUnlock(proposalUnlockId, newStrategyDetail);
-
-        return toResponse(updated);
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                // ✅ Case: ExpertApply chưa có proposal -> tạo mới thay vì update
+                log.info("Chưa có proposal cho jobId={}, tiến hành tạo mới", workspace.getJobId());
+                var created = jobPostServiceClient.createProposalUnlockForJob(workspace.getJobId(), newStrategyDetail);
+                return toResponse(created);
+            }
+            throw e;
+        }
     }
 
     private ProposalStrategyResponse toResponse(com.jobpost.grpc.ProposalUnlockResponse grpcResponse) {

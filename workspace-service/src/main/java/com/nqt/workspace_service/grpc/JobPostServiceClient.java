@@ -1,9 +1,6 @@
 package com.nqt.workspace_service.grpc;
 
-import com.jobpost.grpc.JobIdRequest;
-import com.jobpost.grpc.ProposalUnlockGrpcServiceGrpc;
-import com.jobpost.grpc.ProposalUnlockResponse;
-import com.jobpost.grpc.ProposalUnlockUpdateRequest;
+import com.jobpost.grpc.*;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
@@ -31,5 +28,14 @@ public class JobPostServiceClient {
                 .build();
 
         return proposalUnlockStub.updateProposalUnlock(request);
+    }
+
+    public ProposalUnlockResponse createProposalUnlockForJob(UUID jobId, String strategyDetail) {
+        CreateProposalUnlockRequest request = CreateProposalUnlockRequest.newBuilder()
+                .setJobId(jobId.toString())
+                .setStrategyDetail(strategyDetail)
+                .build();
+
+        return proposalUnlockStub.createProposalUnlockForJob(request);
     }
 }
