@@ -6,6 +6,7 @@ import com.nqt.jobPost_service.dto.request.jobPost.JobPostFilterRequest;
 import com.nqt.jobPost_service.dto.request.jobPost.JobPostRequest;
 import com.nqt.jobPost_service.dto.response.JobPostResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface IJobPost {
@@ -25,6 +26,8 @@ public interface IJobPost {
     PageResponse<JobPostResponse> getAllJobPosts(JobPostFilterRequest request);
 
     JobPostResponse updateJobPost(UUID id, JobPostRequest jobPostRequest);
+
+    List<JobPostResponse> getALlJobPostsOfExpertApply();
 
     void changeStatus(UUID id, JobPostStatus jobPostStatus);
 }

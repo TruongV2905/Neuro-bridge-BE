@@ -13,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -52,6 +53,18 @@ public class JobPostController {
                 )
         );
     }
+
+    @GetMapping("/expert-apply")
+    public ResponseEntity<APIResponse<List<JobPostResponse>>> getJobPostOfExpertApply() {
+        return ResponseEntity.ok(
+                APIResponse.response(
+                        200,
+                        "Get job post successfully",
+                        jobPostService.getALlJobPostsOfExpertApply()
+                )
+        );
+    }
+
 
     @GetMapping("/admin")
     public ResponseEntity<APIResponse<PageResponse<JobPostResponse>>> getAllJobPostsForAdmin(

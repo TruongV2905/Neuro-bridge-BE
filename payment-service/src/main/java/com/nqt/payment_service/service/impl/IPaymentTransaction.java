@@ -81,31 +81,4 @@ public interface IPaymentTransaction {
             String projectId
     );
 
-    // ---------------------------------------------------------------------
-    // SEPAY / VNPay flows — tạo PENDING trước, xử lý trong callback
-    // ---------------------------------------------------------------------
-
-    // 8.1 Mua AI Service bằng VNPay
-    PaymentTransactionResponse transactionAvailableServiceByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String aiServiceId
-    );
-
-    // 8.2 Mua Proposal bằng VNPay
-    PaymentTransactionResponse transactionProposalUnlockByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String proposalId
-    );
-
-    // 8.4 Nạp tiền vào Escrow bằng VNPay
-    PaymentTransactionResponse transactionProjectByVNPay(
-            BigDecimal amount,
-            String description,
-            String escrowId,
-            String projectId
-    );
 }

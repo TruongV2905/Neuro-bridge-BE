@@ -28,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -166,6 +167,18 @@ public class JobPostService implements IJobPost {
     @Override
     public JobPostResponse updateJobPost(UUID id, JobPostRequest jobPostRequest) {
         return null;
+    }
+
+    @Override
+    public List<JobPostResponse> getALlJobPostsOfExpertApply() {
+        UserResponse currentUser = identityServiceClient.getCurrentUser();
+
+        String expertCode = currentUser.getCode();
+
+        return jobPostRepo.findDistinctByExpertAppliesExpertCode(expertCode)
+                .stream()
+                .map(jobPostMapper::toResponse)
+                .toList();
     }
 
     @Override

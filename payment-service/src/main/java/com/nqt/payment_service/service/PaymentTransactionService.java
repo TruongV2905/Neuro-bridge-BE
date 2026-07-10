@@ -375,56 +375,7 @@ public class PaymentTransactionService implements IPaymentTransaction {
         );
     }
 
-    // ---------------------------------------------------------------------
-    // 8.1 Mua AI Service bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
 
-    @Override
-    public PaymentTransactionResponse transactionAvailableServiceByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String aiServiceId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionAvailableServiceByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, deposit on success"
-        );
-    }
-
-    // ---------------------------------------------------------------------
-    // 8.2 Mua Proposal bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
-
-    @Override
-    public PaymentTransactionResponse transactionProposalUnlockByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String proposalId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionProposalUnlockByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, deposit on success"
-        );
-    }
-
-    // ---------------------------------------------------------------------
-    // 8.4 Nạp tiền vào Escrow bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
-
-    @Override
-    public PaymentTransactionResponse transactionProjectByVNPay(
-            BigDecimal amount,
-            String description,
-            String escrowId,
-            String projectId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionProjectByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, escrow deposit on success"
-        );
-    }
 
     // ---------------------------------------------------------------------
     // Helpers
