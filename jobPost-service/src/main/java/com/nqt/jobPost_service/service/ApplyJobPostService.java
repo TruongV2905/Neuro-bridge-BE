@@ -1,7 +1,9 @@
 package com.nqt.jobPost_service.service;
 
 import com.nqt.common_starter.constant.ErrorCode;
+import com.nqt.common_starter.dto.event.NotificationEvent;
 import com.nqt.common_starter.exception.GlobalException;
+import com.nqt.common_starter.kafka.NotificationEventPublisher;
 import com.nqt.jobPost_service.dto.request.ApplyJobPostRequest;
 import com.nqt.jobPost_service.dto.response.ApplyJobPostResponse;
 import com.nqt.jobPost_service.dto.response.ExpertApplyResponse;
@@ -11,6 +13,7 @@ import com.nqt.jobPost_service.entity.ExpertApply;
 import com.nqt.jobPost_service.entity.JobPost;
 import com.nqt.jobPost_service.entity.Proposal;
 import com.nqt.jobPost_service.entity.ProposalUnlock;
+import com.nqt.jobPost_service.httpclient.IdentityServiceClient;
 import com.nqt.jobPost_service.mapper.ExpertApplyMapper;
 import com.nqt.jobPost_service.mapper.ProposalMapper;
 import com.nqt.jobPost_service.mapper.ProposalUnlockMapper;
@@ -22,6 +25,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +43,8 @@ public class ApplyJobPostService implements IApplyJobPost {
     ExpertApplyMapper expertApplyMapper;
     ProposalMapper proposalMapper;
     ProposalUnlockMapper proposalUnlockMapper;
+    IdentityServiceClient identityServiceClient;   // MỚI
+    NotificationEventPublisher eventPublisher;
 
     @Override
     public void appyJobPost(ApplyJobPostRequest request) {
@@ -47,12 +53,11 @@ public class ApplyJobPostService implements IApplyJobPost {
         ExpertApplyResponse expertApplyResponse =
                 expertApplyService.create(request.getExpertApplyRequest());
 
-        if(request.getProposalRequest() == null) {
+        if (request.getProposalRequest() == null) {
             throw new GlobalException(
                     ErrorCode.DATA_INVALID.getCode(),
                     "Proposal request is required"
             );
-
         }
 
         // 2. Create Proposal
@@ -68,6 +73,42 @@ public class ApplyJobPostService implements IApplyJobPost {
                     proposalResponse.getId(),
                     request.getProposalUnlockRequest()
             );
+        }
+
+        // 4. Thông báo cho Client biết có Expert mới apply — MỚI
+        notifyJobPostApplied(request.getExpertApplyRequest().getJobPostId(), expertApplyResponse);
+    }
+
+    private void notifyJobPostApplied(UUID jobPostId, ExpertApplyResponse expertApplyResponse) {
+        try {
+            JobPost jobPost = jobPostRepo.findById(jobPostId)
+                    .orElseThrow(() -> new GlobalException(
+                            ErrorCode.NOT_FOUND.getCode(),
+                            "Job Post " + ErrorCode.NOT_FOUND.getMessage()
+                    ));
+
+            UUID clientUserId = UUID.fromString(
+                    identityServiceClient.getUserByCode(jobPost.getCreatorCode()).getId()
+            );
+            String expertName = identityServiceClient
+                    .getUserByCode(expertApplyResponse.getExpertCode())
+                    .getFullName();
+
+            eventPublisher.publish(
+                    NotificationEventPublisher.JOBPOST_APPLIED,
+                    NotificationEvent.builder()
+                            .eventType("JOBPOST_APPLIED")
+                            .domain("jobpost")
+                            .recipientUserId(clientUserId)
+                            .senderName(expertName)
+                            .resourceId(jobPostId)
+                            .occurredAt(LocalDateTime.now())
+                            .build()
+            );
+        } catch (Exception e) {
+            // Không rollback việc apply nếu bắn noti lỗi — chỉ log lại
+            log.error("Failed to send JOBPOST_APPLIED notification for jobPost {}: {}",
+                    jobPostId, e.getMessage());
         }
     }
 

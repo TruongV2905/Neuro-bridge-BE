@@ -51,6 +51,11 @@ public enum NotificationTemplate {
                     e.getSenderName()),
             e -> String.format("/contracts/%s", e.getResourceId())
     ),
+    JOBPOST_APPLIED(
+            "Có Expert mới ứng tuyển",
+            e -> String.format("%s đã ứng tuyển vào công việc của bạn", e.getSenderName()),
+            e -> String.format("/job-posts/%s/applies", e.getResourceId())
+    ),
     UNKNOWN(
             "Thông báo mới",
             e -> "Có sự kiện mới trong hệ thống",
