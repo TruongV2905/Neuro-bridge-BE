@@ -165,8 +165,46 @@ public class JobPostService implements IJobPost {
     }
 
     @Override
+    @Transactional
     public JobPostResponse updateJobPost(UUID id, JobPostRequest jobPostRequest) {
-        return null;
+        JobPost jobPost = jobPostRepo.findById(id)
+                .orElseThrow(() -> new GlobalException(
+                        ErrorCode.NOT_FOUND.getCode(),
+                        "Job Post " + ErrorCode.NOT_FOUND.getMessage()
+                ));
+
+        // Chỉ cho phép chủ job post cập nhật
+        UserResponse currentUser = identityServiceClient.getCurrentUser();
+        if (!jobPost.getCreatorCode().equals(currentUser.getCode())) {
+            throw new GlobalException(
+                    ErrorCode.UNAUTHORIZED.getCode(),
+                    ErrorCode.UNAUTHORIZED.getMessage()
+            );
+        }
+
+        // Validate budget + estimatedDays
+        validateBudget(jobPostRequest);
+
+        jobPost.setTitle(jobPostRequest.getTitle());
+        jobPost.setDescription(jobPostRequest.getDescription());
+        jobPost.setBudgetFrom(jobPostRequest.getBudgetFrom());
+        jobPost.setBudgetTo(jobPostRequest.getBudgetTo());
+        jobPost.setEstimatedDays(jobPostRequest.getEstimatedDays());
+
+        jobPost.setRequiredSkillIds(
+                jobPostRequest.getRequiredSkillIds() != null
+                        ? jobPostRequest.getRequiredSkillIds()
+                        : new HashSet<>()
+        );
+        jobPost.setPreferredSkillIds(
+                jobPostRequest.getPreferredSkillIds() != null
+                        ? jobPostRequest.getPreferredSkillIds()
+                        : new HashSet<>()
+        );
+
+        JobPost updated = jobPostRepo.save(jobPost);
+
+        return jobPostMapper.toResponse(updated);
     }
 
     @Override
