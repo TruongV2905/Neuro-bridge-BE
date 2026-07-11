@@ -22,4 +22,5 @@ public interface IContractService {
     Contract markWorkspaceCreated(UUID contractId, UUID workspaceId);
 
     void markEscrowId(UUID contractId, UUID escrowId);
+    Optional<Contract> findByJobId(UUID jobId);
 }

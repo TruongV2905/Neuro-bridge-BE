@@ -28,6 +28,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -82,12 +83,8 @@ public class HireService implements IHireService {
                 ? expertApply.getProposal().getProposalUnlock()
                 : null;
 
-        if (proposalUnlock == null) {
-            throw new IllegalStateException("Chưa có Proposal Unlock cho đơn ứng tuyển này.");
-        }
-
         // ✅ 3. Kiểm tra Contract đã tồn tại cho proposalUnlock này chưa
-        Optional<Contract> existingContractOpt = contractService.findByProposalUnlockId(proposalUnlock.getId());
+        Optional<Contract> existingContractOpt = contractService.findByJobId(jobPost.getId());
 
         if (existingContractOpt.isEmpty()) {
             // === LẦN GỌI ĐẦU: tạo Contract, CHƯA tạo workspace ===
@@ -186,13 +183,21 @@ public class HireService implements IHireService {
                 : jobPost.getEstimatedDays();
         LocalDateTime deadline = LocalDateTime.now().plusDays(days);
 
+        UUID proposalUnlockId = proposalUnlock != null ? proposalUnlock.getId() : null;
+        String strategyDetail = proposalUnlock != null
+                ? proposalUnlock.getStrategyDetail()
+                : null;
+        BigDecimal unlockCost = proposalUnlock != null
+                ? proposalUnlock.getUnlockCost()
+                : expertApply.getProposedBudget();
+
         Contract contract = contractService.createContract(
                 jobPost.getId(),
-                proposalUnlock.getId(),
+                proposalUnlockId,
                 jobPost.getCreatorCode(),
                 expertApply.getExpertCode(),
-                proposalUnlock.getStrategyDetail(),
-                proposalUnlock.getUnlockCost(),
+                strategyDetail,
+                unlockCost,
                 jobPost.getTitle(),
                 deadline
         );

@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface ContractRepository extends JpaRepository<Contract, UUID> {
     Optional<Contract> findByProposalUnlockId(UUID proposalUnlockId);
+    Optional<Contract> findByJobId(UUID jobId);
 }

@@ -27,7 +27,7 @@ public class Contract {
     @Column(nullable = false)
     UUID jobId;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     UUID proposalUnlockId;
 
     @Column(nullable = false)

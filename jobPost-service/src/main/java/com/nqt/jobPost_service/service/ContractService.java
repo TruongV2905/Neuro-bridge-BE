@@ -37,12 +37,15 @@ public class ContractService implements IContractService {
                                    String strategyDetail, BigDecimal unlockCost,
                                    String projectName, LocalDateTime deadline) {
 
-        contractRepository.findByProposalUnlockId(proposalUnlockId).ifPresent(c -> {
-            throw new GlobalException(
-                    ErrorCode.INVALID_CODE.getCode(),
-                    "Contract already exists for this proposal unlock"
-            );
-        });
+        // Chỉ check trùng khi có proposalUnlockId — apply không qua proposal thì bỏ qua
+        if (proposalUnlockId != null) {
+            contractRepository.findByProposalUnlockId(proposalUnlockId).ifPresent(c -> {
+                throw new GlobalException(
+                        ErrorCode.INVALID_CODE.getCode(),
+                        "Contract already exists for this proposal unlock"
+                );
+            });
+        }
 
         Contract contract = Contract.builder()
                 .jobId(jobId)
@@ -214,5 +217,10 @@ public class ContractService implements IContractService {
 
         contract.setEscrowId(escrowId);
         contractRepository.save(contract);
+    }
+
+    @Override
+    public Optional<Contract> findByJobId(UUID jobId) {
+        return contractRepository.findByJobId(jobId);
     }
 }
