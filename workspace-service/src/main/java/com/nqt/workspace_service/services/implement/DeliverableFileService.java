@@ -203,6 +203,9 @@ public class DeliverableFileService implements IDeliverableFileService {
         UUID workspaceId = pkg.getWorkspace().getWorkspaceId();
 
         if (allApproved) {
+            if (PackageStatus.APPROVED.equals(pkg.getStatus())) {
+                return;
+            }
             pkg.setStatus(PackageStatus.APPROVED);
             packageRepository.save(pkg);
 
@@ -232,6 +235,10 @@ public class DeliverableFileService implements IDeliverableFileService {
             }
 
         } else if (anyRejected) {
+            // ⚠️ Tránh spam: nếu package đã REJECTED rồi thì không set/notify lại
+            if (PackageStatus.REJECTED.equals(pkg.getStatus())) {
+                return;
+            }
             pkg.setStatus(PackageStatus.REJECTED);
             packageRepository.save(pkg);
 

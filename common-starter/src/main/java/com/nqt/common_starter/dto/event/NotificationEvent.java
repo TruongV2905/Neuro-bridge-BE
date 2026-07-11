@@ -34,6 +34,7 @@ public class NotificationEvent {
     // ── Nội dung tuỳ chỉnh ───────────────────────────────────────
     private String customTitle;      // title tuỳ chỉnh (nếu không dùng default)
     private String customMessage;    // message tuỳ chỉnh (nếu không dùng default)
+    private String customDeeplink;
     private String feedback;         // feedback khi REJECTED
 
     // ── Metadata ─────────────────────────────────────────────────

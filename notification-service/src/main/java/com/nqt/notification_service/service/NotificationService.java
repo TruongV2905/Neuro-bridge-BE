@@ -29,7 +29,6 @@ public class NotificationService {
     public void sendNotification(NotificationEvent event) {
         NotificationPayload payload = buildPayload(event);
 
-        // 1. Lưu vào DB
         Notification notification = Notification.builder()
                 .recipientUserId(event.getRecipientUserId())
                 .type(payload.getType())
@@ -37,6 +36,7 @@ public class NotificationService {
                 .message(payload.getMessage())
                 .resourceId(event.getResourceId())
                 .workspaceId(event.getWorkspaceId())
+                .deeplink(payload.getDeeplink())
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -45,11 +45,9 @@ public class NotificationService {
 
         NotificationResponse response = toResponse(saved);
 
-        // 2. Cập nhật Redis cache
         cacheService.addToNotificationList(event.getRecipientUserId(), response);
         cacheService.incrementUnreadCount(event.getRecipientUserId());
 
-        // 3. Gửi WebSocket realtime
         messagingTemplate.convertAndSendToUser(
                 event.getRecipientUserId().toString(),
                 "/queue/notifications",
@@ -137,13 +135,13 @@ public class NotificationService {
                 .message(n.getMessage())
                 .resourceId(n.getResourceId())
                 .workspaceId(n.getWorkspaceId())
+                .deeplink(n.getDeeplink())
                 .isRead(n.isRead())
                 .createdAt(n.getCreatedAt())
                 .build();
     }
 
     private NotificationPayload buildPayload(NotificationEvent event) {
-        // Override hoàn toàn nếu producer tự set title + message
         if (event.getCustomTitle() != null && event.getCustomMessage() != null) {
             return NotificationPayload.builder()
                     .type(event.getEventType())
@@ -151,6 +149,9 @@ public class NotificationService {
                     .message(event.getCustomMessage())
                     .resourceId(event.getResourceId())
                     .workspaceId(event.getWorkspaceId())
+                    .deeplink(event.getCustomDeeplink() != null
+                            ? event.getCustomDeeplink()
+                            : NotificationTemplate.fromEventType(event.getEventType()).buildDeeplink(event))
                     .timestamp(LocalDateTime.now())
                     .build();
         }
@@ -163,6 +164,7 @@ public class NotificationService {
                 .message(template.buildMessage(event))
                 .resourceId(event.getResourceId())
                 .workspaceId(event.getWorkspaceId())
+                .deeplink(template.buildDeeplink(event))
                 .timestamp(LocalDateTime.now())
                 .build();
     }

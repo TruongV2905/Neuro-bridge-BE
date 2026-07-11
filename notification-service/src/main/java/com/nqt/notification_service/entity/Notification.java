@@ -35,6 +35,7 @@ public class Notification {
 
     private UUID resourceId;
     private UUID workspaceId;
+    private String deeplink;
 
     @Column(nullable = false)
     @Builder.Default

@@ -14,6 +14,7 @@ public class NotificationResponse {
     private String message;
     private UUID resourceId;
     private UUID workspaceId;
+    private String deeplink;
     private boolean isRead;
     private LocalDateTime createdAt;
 }

@@ -17,5 +17,6 @@ public class NotificationPayload {
     private String message;
     private UUID resourceId;
     private UUID workspaceId;
+    private String deeplink;
     private LocalDateTime timestamp;
 }
