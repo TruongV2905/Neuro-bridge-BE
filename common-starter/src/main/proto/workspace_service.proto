@@ -9,6 +9,7 @@ import "google/protobuf/timestamp.proto";
 
 service WorkspaceService {
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+  rpc GetWorkspaceById(GetWorkspaceByIdRequest) returns (WorkspaceResponse);
 }
 
 message CreateWorkspaceRequest {
@@ -24,4 +25,16 @@ message CreateWorkspaceResponse {
   string workspace_id = 1;
   bool success = 2;
   string message = 3;
+}
+
+message GetWorkspaceByIdRequest {
+  string workspace_id = 1;
+}
+
+message WorkspaceResponse {
+  string workspace_id = 1;
+  string job_id = 2;
+  string client_id = 3;
+  string expert_id = 4;
+  string status = 5;
 }

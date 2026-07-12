@@ -66,6 +66,9 @@ grpc:
     identity-service:
       address: ${IDENTITY_GRPC_ADDRESS:static://localhost:9091}
       negotiation-type: plaintext
+    workspace-service:
+      address: ${WORKSPACE_GRPC_ADDRESS:static://localhost:9090}
+      negotiation-type: plaintext
 
 jwt:
   signerKey: ${JWT_SIGNER_KEY:AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g==}
