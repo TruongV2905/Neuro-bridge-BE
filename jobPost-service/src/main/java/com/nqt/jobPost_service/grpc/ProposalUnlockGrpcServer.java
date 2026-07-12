@@ -107,6 +107,53 @@ public class ProposalUnlockGrpcServer extends ProposalUnlockGrpcServiceGrpc.Prop
     }
 
     @Override
+    public void getProposalUnlockInfo(ProposalIdRequest request,
+                                      StreamObserver<ProposalUnlockInfoResponse> responseObserver) {
+        try {
+            UUID proposalId = UUID.fromString(request.getProposalId());
+
+            Proposal proposal = proposalRepo.findById(proposalId)
+                    .orElseThrow(() -> Status.NOT_FOUND
+                            .withDescription("Proposal not found with id: " + proposalId)
+                            .asRuntimeException());
+
+            ExpertApply expertApply = proposal.getExpertApply();
+            ProposalUnlock proposalUnlock = proposal.getProposalUnlock();
+
+            if (expertApply == null) {
+                responseObserver.onError(Status.NOT_FOUND
+                        .withDescription("ExpertApply not found for proposalId: " + proposalId)
+                        .asRuntimeException());
+                return;
+            }
+
+            String expertCode = expertApply.getExpertCode();
+            String amount = proposalUnlock != null && proposalUnlock.getUnlockCost() != null
+                    ? proposalUnlock.getUnlockCost().toPlainString()
+                    : "0";
+
+            ProposalUnlockInfoResponse response = ProposalUnlockInfoResponse.newBuilder()
+                    .setProposalId(proposalId.toString())
+                    .setExpertCode(expertCode != null ? expertCode : "")
+                    .setAmount(amount)
+                    .build();
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("Invalid proposalId format: " + e.getMessage())
+                    .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to get proposal unlock info id={}", request.getProposalId(), e);
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Internal error: " + e.getMessage())
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
     public void unlockProposal(ProposalIdRequest request,
                                StreamObserver<ProposalUnlockStatusResponse> responseObserver) {
         try {

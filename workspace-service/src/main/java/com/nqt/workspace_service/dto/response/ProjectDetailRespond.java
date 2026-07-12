@@ -1,6 +1,6 @@
 package com.nqt.workspace_service.dto.response;
 
-import com.nqt.workspace_service.enums.ProjectState;
+import com.nqt.workspace_service.constant.ProjectState;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import java.time.LocalDateTime;

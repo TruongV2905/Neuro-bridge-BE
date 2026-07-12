@@ -7,9 +7,9 @@ spring:
     name: chat-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/chat
+    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/chat
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:SWD392@server}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -23,7 +23,7 @@ spring:
     show-sql: true
 
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:103.180.138.143:9092}
     consumer:
       group-id: chat-service
       auto-offset-reset: earliest

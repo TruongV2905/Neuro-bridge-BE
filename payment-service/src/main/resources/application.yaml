@@ -1,9 +1,9 @@
 debug: true
 
-logging:
-  level:
-    org.springframework.beans.factory: DEBUG
-    org.springframework.context.annotation: DEBUG
+#logging:
+#  level:
+#    org.springframework.beans.factory: DEBUG
+#    org.springframework.context.annotation: DEBUG
 
 server:
   port: 4564
@@ -12,9 +12,9 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/payment
+    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/payment
     username: postgres
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:SWD392@server}
   threads:
     virtual:
       enabled: true

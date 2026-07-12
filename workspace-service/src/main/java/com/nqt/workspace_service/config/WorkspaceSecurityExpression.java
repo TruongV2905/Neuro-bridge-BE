@@ -1,8 +1,8 @@
 package com.nqt.workspace_service.config; // 🌟 Sửa lại tên package cho đúng với dự án của bạn
 
-import com.nqt.workspace_service.entities.ProjectDetail;
-import com.nqt.workspace_service.repositories.ProjectDetailRepository;
-import com.nqt.workspace_service.repositories.WorkspaceMemberRepository;
+import com.nqt.workspace_service.entity.ProjectDetail;
+import com.nqt.workspace_service.repository.ProjectDetailRepository;
+import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;

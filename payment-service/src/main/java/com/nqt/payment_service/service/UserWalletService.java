@@ -27,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Service
 //@RequiredArgsConstructor
@@ -114,9 +115,6 @@ public class UserWalletService implements IUserWallet {
     @Override
     public void withdraw(String userCode, BigDecimal withdrawAmount) {
 
-        if (withdrawAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new GlobalException("Withdraw amount must be greater than 0");
-        }
 
         UserWallet wallet = userWalletRepository.findByUserCode(userCode)
                 .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
@@ -148,16 +146,14 @@ public class UserWalletService implements IUserWallet {
     public String depositByVnPay(BigDecimal depositAmount,String description, String clientIp) {
         UserResponse user = identityServiceClient.getCurrentUser();
         String userCode = user.getCode();
-        PaymentTransactionResponse paymentTransactionResponse = paymentTransactionService.payment(
-                null,
-                userCode,
-                TransactionType.WALLET_DEPOSIT,
-                "depositByVnPay",
-                null,
-                depositAmount,
-                null,
-                null
-        );
+        PaymentTransactionRequest request = PaymentTransactionRequest.builder()
+                .amount(depositAmount)
+                .type(TransactionType.WALLET_DEPOSIT)
+                .toUserCode(userCode)
+                .referenceType(PaymentReferenceType.DEPOSIT_REQUEST)
+                .build();
+        PaymentTransactionResponse paymentTransactionResponse = paymentTransactionService.create(request);
+
         String paymentTransactionId = paymentTransactionResponse.getId().toString();
         try{
             return  vNPayService.createVnPayUrl(paymentTransactionId,depositAmount,clientIp);
@@ -165,6 +161,27 @@ public class UserWalletService implements IUserWallet {
             throw new GlobalException("Failed to create VNPay URL: " + e.getMessage());
         }
     }
+
+    @Override
+    @Transactional
+    public void depositSuccessfully(BigDecimal depositAmount, UUID transactionId) {
+        UserResponse user = identityServiceClient.getCurrentUser();
+        String userCode = user.getCode();
+        paymentTransactionService.payment(
+                null,
+                userCode,
+                TransactionType.WALLET_DEPOSIT,
+                null,
+                PaymentReferenceType.DEPOSIT_REQUEST,
+                null,
+                depositAmount,
+                transactionId
+        );
+    }
+
+
+
+
 
 
     @Override
@@ -184,7 +201,7 @@ public class UserWalletService implements IUserWallet {
                     "Withdrawal amount must be less than the current wallet balance"
             );
         }
-        currentWallet.setWalletBalance(currentWallet.getWalletBalance().add(amountRequestWithdrawal));
+        currentWallet.setAmountRequestWithdrawal(amountRequestWithdrawal);
         currentWallet.setRequestWithdrawal(true);
         userWalletRepository.save(currentWallet);
     }
@@ -217,6 +234,8 @@ public class UserWalletService implements IUserWallet {
         );
     }
 
+
+
     private UserWalletResponse toResponse(UserWallet wallet) {
         return UserWalletResponse.builder()
                 .id(wallet.getId())
@@ -242,7 +261,7 @@ public class UserWalletService implements IUserWallet {
                 null,
                 TransactionType.WALLET_WITHDRAW,
                 null,
-                null,
+                PaymentReferenceType.WITHDRAW_REQUEST,
                 currentWallet.getAmountRequestWithdrawal(),
                 null,
                 null

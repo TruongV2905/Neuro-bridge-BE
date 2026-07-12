@@ -7,6 +7,7 @@ import com.nqt.payment_service.dto.response.WithdrawRequestResponse;
 import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public interface IUserWallet {
     UserWalletResponse create(String userCode);
@@ -21,5 +22,7 @@ public interface IUserWallet {
     void createRequest(BigDecimal amountRequestWithdrawal);
     UserWalletResponse updateCurrentUserBankInfo(UpdateBankInfoRequest request);
     PageResponse<WithdrawRequestResponse> getWithdrawalRequests(int page, int size);
+
+    void depositSuccessfully(BigDecimal depositAmount, UUID transactionId);
 
 }

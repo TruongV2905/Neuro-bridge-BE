@@ -12,7 +12,7 @@ spring:
   application:
     name: notification-service
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:103.180.138.143:9092}
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
@@ -22,15 +22,15 @@ spring:
         spring.json.trusted.packages: "*"
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:103.180.138.143}
       port: ${REDIS_PORT:6379}
       client-type: jedis
   cache:
     type: none
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/notification}
+    url: ${DB_URL:jdbc:postgresql://103.180.138.143:5432/notification}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:SWD392@server}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

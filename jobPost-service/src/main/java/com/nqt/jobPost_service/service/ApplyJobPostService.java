@@ -1,5 +1,6 @@
 package com.nqt.jobPost_service.service;
 
+import com.identity.grpc.UserResponse;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.event.NotificationEvent;
 import com.nqt.common_starter.exception.GlobalException;
@@ -45,6 +46,7 @@ public class ApplyJobPostService implements IApplyJobPost {
     ProposalUnlockMapper proposalUnlockMapper;
     IdentityServiceClient identityServiceClient;   // MỚI
     NotificationEventPublisher eventPublisher;
+
 
     @Override
     public void appyJobPost(ApplyJobPostRequest request) {
@@ -114,12 +116,18 @@ public class ApplyJobPostService implements IApplyJobPost {
 
     @Override
     public List<ApplyJobPostResponse> getAllApplyJobPostByIdJobPost(UUID jobPostId) {
+        UserResponse currentUser  = identityServiceClient.getCurrentUser();
         JobPost jobPost = jobPostRepo.findById(jobPostId)
                 .orElseThrow(() -> new GlobalException(
                         ErrorCode.NOT_FOUND.getCode(),
                         "Job Post " + ErrorCode.NOT_FOUND.getMessage()
                 ));
-
+        if(!currentUser.getCode().equals(jobPost.getCreatorCode())){
+            throw new GlobalException(
+                    ErrorCode.UNAUTHORIZED.getCode(),
+                    "You are not allowed to view this job post's applications"
+            );
+        }
         Set<ExpertApply> expertApplies = jobPost.getExpertApplies();
 
         return expertApplies.stream()
@@ -141,7 +149,9 @@ public class ApplyJobPostService implements IApplyJobPost {
             ProposalUnlock proposalUnlock = proposal.getProposalUnlock();
             if (proposalUnlock != null) {
                 proposalResponse.setUnlockCost(proposalUnlock.getUnlockCost());
-                proposalUnlockResponse = proposalUnlockMapper.toResponse(proposalUnlock);
+                if(!proposal.isLocked()) {
+                    proposalUnlockResponse = proposalUnlockMapper.toResponse(proposalUnlock);
+                }
             }
         }
 

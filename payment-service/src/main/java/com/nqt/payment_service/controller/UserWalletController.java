@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/wallet")
@@ -28,11 +29,15 @@ public class UserWalletController {
     @PutMapping("/me/bank-info")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Cập nhật thông tin tài khoản ngân hàng của ví hiện tại")
-    public ResponseEntity<UserWalletResponse> updateBankInfo(
+    public ResponseEntity<APIResponse<UserWalletResponse>> updateBankInfo(
             @Valid @RequestBody UpdateBankInfoRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UserWalletResponse response = userWalletService.updateCurrentUserBankInfo(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(APIResponse.response(
+                200,
+                "Bank info updated successfully",
+                response
+        ));
     }
 
     @GetMapping("/mine")
@@ -94,6 +99,22 @@ public class UserWalletController {
                                 description,
                                 clientIp
                         )
+                )
+        );
+    }
+
+    @PostMapping("/deposit/success")
+    public ResponseEntity<APIResponse<Void>> depositSuccessfully(
+            @RequestParam BigDecimal depositAmount,
+            @RequestParam UUID transactionId
+    ) {
+        userWalletService.depositSuccessfully(depositAmount, transactionId);
+
+        return ResponseEntity.ok(
+                APIResponse.response(
+                        200,
+                        "Deposit successfully",
+                        null
                 )
         );
     }

@@ -1,6 +1,6 @@
 package com.nqt.workspace_service.dto.request;
 
-import com.nqt.workspace_service.enums.FileStatus;
+import com.nqt.workspace_service.constant.FileStatus;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;

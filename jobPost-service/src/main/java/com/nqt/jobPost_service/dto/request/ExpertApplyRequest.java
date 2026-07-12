@@ -15,5 +15,4 @@ public class ExpertApplyRequest {
     UUID jobPostId;
     BigDecimal proposedBudget;
     Integer estimatedDays;
-    String expertCode;
 }

@@ -70,7 +70,7 @@ public class JwtTokenVerifier {
                     .claim("userId", serviceName)
                     .claim("role", "SERVICE")
                     .issueTime(new Date())
-                    .expirationTime(Date.from(Instant.now().plusSeconds(30))) // sống rất ngắn, chỉ đủ 1 lần gọi nội bộ
+                    .expirationTime(Date.from(Instant.now().plusSeconds(60))) // sống rất ngắn, chỉ đủ 1 lần gọi nội bộ
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(

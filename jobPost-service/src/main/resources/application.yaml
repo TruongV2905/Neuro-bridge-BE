@@ -5,11 +5,11 @@ spring:
   application:
     name: jobPost-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/jobpost
+    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/jobpost
     username: postgres
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:SWD392@server}
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:103.180.138.143:9092}
   threads:
     virtual:
       enabled: true

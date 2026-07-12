@@ -23,6 +23,12 @@ message ProposalUnlockStatusResponse {
   bool unlocked = 2;
 }
 
+message ProposalUnlockInfoResponse {
+  string proposal_id = 1;
+  string expert_code = 2;
+  string amount = 3; // BigDecimal as string to preserve precision
+}
+
 message ProposalUnlockUpdateRequest {
   string proposal_unlock_id = 1;
   string strategy_detail = 2;
@@ -37,5 +43,6 @@ service ProposalUnlockGrpcService {
   rpc GetApprovedProposalUnlock(JobIdRequest) returns (ProposalUnlockResponse);
   rpc UpdateProposalUnlock(ProposalUnlockUpdateRequest) returns (ProposalUnlockResponse);
   rpc UnlockProposal(ProposalIdRequest) returns (ProposalUnlockStatusResponse);
+  rpc GetProposalUnlockInfo(ProposalIdRequest) returns (ProposalUnlockInfoResponse);
   rpc createProposalUnlockForJob(CreateProposalUnlockRequest) returns (ProposalUnlockResponse);
 }

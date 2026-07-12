@@ -107,15 +107,12 @@ public class PaymentTransactionController {
      */
     @PostMapping("/proposal/pay-by-wallet")
     public ResponseEntity<APIResponse<PaymentTransactionResponse>> payProposalByWallet(
-            @RequestParam BigDecimal amount,
-            @RequestParam(required = false) String description,
-            @RequestParam String expertCode,
             @RequestParam String proposalId) {
         return ResponseEntity.ok(APIResponse.response(
                 200,
                 "Pay proposal by wallet successfully",
                 paymentTransactionService.transactionProposalUnlockByWallet(
-                        amount, description, expertCode, proposalId
+                        proposalId
                 )
         ));
     }

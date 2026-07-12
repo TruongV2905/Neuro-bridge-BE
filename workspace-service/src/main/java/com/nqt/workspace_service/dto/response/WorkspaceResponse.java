@@ -1,5 +1,5 @@
 package com.nqt.workspace_service.dto.response;
-import com.nqt.workspace_service.enums.WorkspaceStatus;
+import com.nqt.workspace_service.constant.WorkspaceStatus;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;

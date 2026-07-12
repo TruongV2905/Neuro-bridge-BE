@@ -4,6 +4,7 @@ import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.identity_service.constant.Role;
 import com.nqt.identity_service.constant.UserStatus;
 import com.nqt.identity_service.entity.User;
+import com.nqt.identity_service.grpc.PaymentServiceClient;
 import com.nqt.identity_service.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ import java.util.Set;
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
     UserRepository userRepository;
-
+    PaymentServiceClient paymentServiceClient;
     @Override
     public void run(String... args) throws Exception {
         seedCreateAdminUser();
@@ -45,7 +46,9 @@ public class DataSeeder implements CommandLineRunner {
                         .status(UserStatus.ACTIVE)
                         .createdAt(LocalDateTime.now())
                         .build();
-        userRepository.save(admin);
+        User entity = userRepository.save(admin);
         log.info("Seeded admin user: admin@gmail.com / Admin@123");
+        paymentServiceClient.createWallet(entity.getCode());
+        log.info("Created wallet for admin user: {}", entity.getCode());
     }
 }

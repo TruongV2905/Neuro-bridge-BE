@@ -21,7 +21,7 @@ public class ProposalUnlockController {
     ProposalUnlockService proposalUnlockService;
 
     @GetMapping("/{proposalId}")
-    public ResponseEntity<APIResponse<ProposalUnlockResponse>> getProposalUnlockById(
+    public ResponseEntity<APIResponse<ProposalUnlockResponse>> getProposalUnlockByProposalId(
             @PathVariable UUID proposalId
     ) {
         return ResponseEntity.ok(
@@ -29,6 +29,18 @@ public class ProposalUnlockController {
                         HttpStatus.OK.value(),
                         "Get proposal unlock successfully",
                         proposalUnlockService.getByProposalId(proposalId)
+                )
+        );
+    }
+    @GetMapping("/{id}")
+    public ResponseEntity<APIResponse<ProposalUnlockResponse>> getProposalUnlockById(
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(
+                APIResponse.response(
+                        HttpStatus.OK.value(),
+                        "Get proposal unlock successfully",
+                        proposalUnlockService.getById(id)
                 )
         );
     }

@@ -196,9 +196,9 @@ public class PaymentTransactionService implements IPaymentTransaction {
                     .toUserCode(toUserCode)
                     .type(transactionType)
                     .referenceId(referenceId)
+                    .status(TransactionStatus.SUCCESS)
                     .referenceType(referenceType)
                     .amount(receivedAmount != null ? receivedAmount : deductibleAmount)
-                    .status(TransactionStatus.SUCCESS)
                     .description(buildDescription(transactionType, fromUserCode, toUserCode))
                     .build();
             response = create(request);
@@ -260,18 +260,35 @@ public class PaymentTransactionService implements IPaymentTransaction {
     @Override
     @Transactional
     public PaymentTransactionResponse transactionProposalUnlockByWallet(
-            BigDecimal amount,
-            String description,
-            String expertCode,
             String proposalId
     ) {
         UserResponse client = identityServiceClient.getCurrentUser();
         String clientCode = client.getCode();
 
+        // Lấy expertCode + amount (unlockCost) của proposal qua gRPC từ jobpost-service
+        JobPostServiceClient.ProposalUnlockInfo proposalInfo =
+                jobPostServiceClient.getProposalUnlockInfo(proposalId);
+        String expertCode = proposalInfo.expertCode();
+        BigDecimal amount = proposalInfo.amount();
+
+        if (expertCode == null || expertCode.isBlank()) {
+            throw new GlobalException(
+                    ErrorCode.NOT_FOUND.getCode(),
+                    "Expert code not found for proposalId: " + proposalId
+            );
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Invalid unlock amount for proposalId: " + proposalId
+            );
+        }
+
         BigDecimal[] split = calculateFee(amount);
         BigDecimal systemFee = split[0];
         BigDecimal expertReceived = split[1];
-
+        log.info("Proposal payment done: client={} expert={} proposalId={} amount={} fee={}",
+                clientCode, expertCode, proposalId, amount, systemFee);
         // Thanh toán chính: client → expert
         PaymentTransactionResponse mainTx = payment(
                 clientCode,
@@ -297,8 +314,7 @@ public class PaymentTransactionService implements IPaymentTransaction {
                 null
         );
 
-        log.info("Proposal payment done: client={} expert={} proposalId={} amount={} fee={}",
-                clientCode, expertCode, proposalId, amount, systemFee);
+
 
         try {
             boolean unlocked = jobPostServiceClient.unlockProposal(proposalId);
@@ -339,56 +355,7 @@ public class PaymentTransactionService implements IPaymentTransaction {
         );
     }
 
-    // ---------------------------------------------------------------------
-    // 8.1 Mua AI Service bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
 
-    @Override
-    public PaymentTransactionResponse transactionAvailableServiceByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String aiServiceId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionAvailableServiceByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, deposit on success"
-        );
-    }
-
-    // ---------------------------------------------------------------------
-    // 8.2 Mua Proposal bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
-
-    @Override
-    public PaymentTransactionResponse transactionProposalUnlockByVNPay(
-            BigDecimal amount,
-            String description,
-            String expertCode,
-            String proposalId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionProposalUnlockByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, deposit on success"
-        );
-    }
-
-    // ---------------------------------------------------------------------
-    // 8.4 Nạp tiền vào Escrow bằng VNPay (SEPAY)
-    // ---------------------------------------------------------------------
-
-    @Override
-    public PaymentTransactionResponse transactionProjectByVNPay(
-            BigDecimal amount,
-            String description,
-            String escrowId,
-            String projectId
-    ) {
-        throw new UnsupportedOperationException(
-                "transactionProjectByVNPay not implemented yet — " +
-                "wire up SEPAY callback: create PENDING, escrow deposit on success"
-        );
-    }
 
     @Override
     @Transactional
@@ -429,7 +396,6 @@ public class PaymentTransactionService implements IPaymentTransaction {
                 null
         );
         projectEscrowService.markFunded(escrow.getId());
-
         return PayEscrowResult.builder()
                 .escrowId(escrow.getId())
                 .status(EscrowStatus.FUNDED)

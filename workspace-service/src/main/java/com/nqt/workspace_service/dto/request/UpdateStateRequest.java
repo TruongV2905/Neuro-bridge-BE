@@ -1,5 +1,5 @@
 package com.nqt.workspace_service.dto.request;
-import com.nqt.workspace_service.enums.ProjectState;
+import com.nqt.workspace_service.constant.ProjectState;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.FieldDefaults;

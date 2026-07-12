@@ -1,5 +1,6 @@
 package com.nqt.jobPost_service.service;
 
+import com.identity.grpc.UserResponse;
 import com.nqt.common_starter.constant.ErrorCode;
 import com.nqt.common_starter.dto.request.PageRequest;
 import com.nqt.common_starter.dto.response.PageResponse;
@@ -9,6 +10,7 @@ import com.nqt.jobPost_service.dto.request.ExpertApplyRequest;
 import com.nqt.jobPost_service.dto.response.ExpertApplyResponse;
 import com.nqt.jobPost_service.entity.ExpertApply;
 import com.nqt.jobPost_service.entity.JobPost;
+import com.nqt.jobPost_service.httpclient.IdentityServiceClient;
 import com.nqt.jobPost_service.mapper.ExpertApplyMapper;
 import com.nqt.jobPost_service.repository.ExpertApplyRepo;
 import com.nqt.jobPost_service.repository.JobPostRepo;
@@ -33,10 +35,12 @@ public class ExpertApplyService implements IExpertApply {
     ExpertApplyRepo expertApplyRepo;
     JobPostRepo jobPostRepository;
     ExpertApplyMapper expertApplyMapper;
+    IdentityServiceClient identityServiceClient;
 
     @Override
     @Transactional
     public ExpertApplyResponse create(ExpertApplyRequest request) {
+        UserResponse expert = identityServiceClient.getCurrentUser();
         JobPost jobPost = jobPostRepository.findById(request.getJobPostId())
                 .orElseThrow(() -> new GlobalException(
                         ErrorCode.NOT_FOUND.getCode(),
@@ -45,7 +49,7 @@ public class ExpertApplyService implements IExpertApply {
 
         boolean alreadyApplied = expertApplyRepo.existsByJobPost_IdAndExpertCode(
                 request.getJobPostId(),
-                request.getExpertCode()
+                expert.getCode()
         );
 
         if (alreadyApplied) {
@@ -56,6 +60,7 @@ public class ExpertApplyService implements IExpertApply {
         }
 
         ExpertApply expertApply = expertApplyMapper.toEntity(request);
+        expertApply.setExpertCode(expert.getCode());
         expertApply.setJobPost(jobPost);
 
         ExpertApply savedExpertApply = expertApplyRepo.save(expertApply);

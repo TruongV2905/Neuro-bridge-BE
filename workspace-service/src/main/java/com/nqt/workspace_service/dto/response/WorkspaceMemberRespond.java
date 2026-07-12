@@ -1,5 +1,5 @@
 package com.nqt.workspace_service.dto.response;
-import com.nqt.workspace_service.enums.WorkspaceRole;
+import com.nqt.workspace_service.constant.WorkspaceRole;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 

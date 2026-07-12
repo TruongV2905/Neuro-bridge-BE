@@ -1,5 +1,5 @@
 package com.nqt.workspace_service.dto.response;
-import com.nqt.workspace_service.enums.FileType;
+import com.nqt.workspace_service.constant.FileType;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
