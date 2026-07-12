@@ -60,7 +60,7 @@ springdoc:
 
 grpc:
   server:
-    port: 9095
+    port: 9096
 
   client:
     identity-service:
