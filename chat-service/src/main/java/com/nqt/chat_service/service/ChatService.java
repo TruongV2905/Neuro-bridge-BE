@@ -12,11 +12,13 @@ import com.nqt.chat_service.dto.response.ParticipantDetail;
 import com.nqt.chat_service.entity.ChatSession;
 import com.nqt.chat_service.entity.Messages;
 import com.nqt.chat_service.httpclient.IdentityServiceClient;
+import com.nqt.chat_service.httpclient.WorkspaceServiceClient;
 import com.nqt.chat_service.mapper.ChatSessionMapper;
 import com.nqt.chat_service.mapper.MessageMapper;
 import com.nqt.chat_service.repository.ChatSessionRepository;
 import com.nqt.chat_service.repository.MessageRepository;
 import com.nqt.common_starter.dto.response.PageResponse;
+import com.workspace.grpc.WorkspaceResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -47,6 +49,7 @@ public class ChatService {
     ChatSessionMapper chatSessionMapper;
     MessageMapper messageMapper;
     IdentityServiceClient identityServiceClient;
+    WorkspaceServiceClient workspaceServiceClient;
 
     // ---------------------------------------------------------------------
     // Chat sessions
@@ -54,13 +57,71 @@ public class ChatService {
 
     @Transactional
     public ChatSessionResponse createChatSession(CreateChatSessionRequest request) {
-        validateCreateChatSessionRequest(request);
-
-        ChatSession chatSession = chatSessionMapper.toEntity(request);
-        chatSession.setStatus(ChatSessionStatus.ACTIVE);
-        if (chatSession.getType() == null) {
-            chatSession.setType(ChatType.DIRECT);
+        if (request == null) {
+            throw new RuntimeException("Request is required");
         }
+
+        ChatSession chatSession;
+
+        if (request.getWorkspaceId() != null) {
+            chatSession = buildProjectChatSession(request);
+        } else {
+            chatSession = buildDirectChatSession(request);
+        }
+
+        ChatSession saved = chatSessionRepository.save(chatSession);
+        log.info("[Chat] Created session id={} workspace={} type={} participants={}",
+                saved.getId(), saved.getWorkspaceId(), saved.getType(), saved.getParticipantCodes());
+
+        return toSessionResponse(saved);
+    }
+
+    private ChatSession buildProjectChatSession(CreateChatSessionRequest request) {
+        String workspaceIdStr = request.getWorkspaceId().toString();
+
+        WorkspaceResponse workspace;
+        try {
+            workspace = workspaceServiceClient.getWorkspaceById(workspaceIdStr);
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot resolve workspace " + workspaceIdStr + ": " + e.getMessage());
+        }
+
+        if (!"ACTIVE".equalsIgnoreCase(workspace.getStatus())) {
+            throw new RuntimeException("Workspace is not active (status=" + workspace.getStatus() + "), cannot create chat session");
+        }
+
+        // Xác định current user
+        UserResponse me = identityServiceClient.getCurrentUser();
+        String myId = me.getId();
+
+        boolean isMember = myId != null &&
+                (myId.equals(workspace.getClientId()) || myId.equals(workspace.getExpertId()));
+        if (!isMember) {
+            throw new RuntimeException("Current user is not a member of this workspace");
+        }
+
+        // Convert clientId/expertId (UUID) -> user code thật, không tin participantCodes FE gửi lên
+        UserResponse client = identityServiceClient.getUserById(workspace.getClientId());
+        UserResponse expert = identityServiceClient.getUserById(workspace.getExpertId());
+
+        Set<String> participants = new HashSet<>();
+        if (client.getCode() != null && !client.getCode().isBlank()) participants.add(client.getCode());
+        if (expert.getCode() != null && !expert.getCode().isBlank()) participants.add(expert.getCode());
+
+        if (participants.size() < 2) {
+            throw new RuntimeException("Cannot resolve client/expert codes for workspace " + workspaceIdStr);
+        }
+
+        return ChatSession.builder()
+                .workspaceId(request.getWorkspaceId())
+                .status(ChatSessionStatus.ACTIVE)
+                .type(ChatType.PROJECT)
+                .participantCodes(participants)
+                .build();
+    }
+
+    private ChatSession buildDirectChatSession(CreateChatSessionRequest request) {
+        validateCreateChatSessionRequest(request);
 
         Set<String> participants = new HashSet<>(request.getParticipantCodes());
         try {
@@ -71,13 +132,13 @@ public class ChatService {
         } catch (Exception e) {
             log.warn("[Chat] Could not resolve current user when creating session: {}", e.getMessage());
         }
-        chatSession.setParticipantCodes(participants);
 
-        ChatSession saved = chatSessionRepository.save(chatSession);
-        log.info("[Chat] Created session id={} workspace={} participants={}",
-                saved.getId(), saved.getWorkspaceId(), saved.getParticipantCodes());
-
-        return toSessionResponse(saved);
+        return ChatSession.builder()
+                .workspaceId(null)
+                .status(ChatSessionStatus.ACTIVE)
+                .type(ChatType.DIRECT)
+                .participantCodes(participants)
+                .build();
     }
 
     @Transactional(readOnly = true)

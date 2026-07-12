@@ -2,7 +2,9 @@ package com.nqt.workspace_service.grpc;
 
 import com.google.protobuf.Timestamp;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
-import com.nqt.workspace_service.service.interfaces.IWorkspaceInitializationService;
+import com.nqt.workspace_service.entities.Workspace;
+import com.nqt.workspace_service.repositories.WorkspaceRepository;
+import com.nqt.workspace_service.services.interfaces.IWorkspaceInitializationService;
 import com.workspace.grpc.*;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -22,6 +24,7 @@ public class WorkspaceGrpcServiceImpl extends WorkspaceServiceGrpc.WorkspaceServ
 
     private final IWorkspaceInitializationService workspaceInitializationService;
     private final UserClientService userClientService;
+    private final WorkspaceRepository workspaceRepository;
 
     @Override
     public void createWorkspace(CreateWorkspaceRequest request,
@@ -79,6 +82,37 @@ public class WorkspaceGrpcServiceImpl extends WorkspaceServiceGrpc.WorkspaceServ
                     .withDescription("Failed to create workspace: " + e.getMessage())
                     .asRuntimeException());
         }
+    }
+
+    @Override
+    public void getWorkspaceById(GetWorkspaceByIdRequest request,
+                                 StreamObserver<com.workspace.grpc.WorkspaceResponse> responseObserver) {
+        UUID workspaceId;
+        try {
+            workspaceId = UUID.fromString(request.getWorkspaceId());
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(
+                    Status.INVALID_ARGUMENT.withDescription("Invalid workspace id").asRuntimeException());
+            return;
+        }
+
+        Workspace workspace = workspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace == null) {
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Workspace not found: " + workspaceId).asRuntimeException());
+            return;
+        }
+
+        com.workspace.grpc.WorkspaceResponse response = com.workspace.grpc.WorkspaceResponse.newBuilder()
+                .setWorkspaceId(workspace.getWorkspaceId().toString())
+                .setJobId(workspace.getJobId() != null ? workspace.getJobId().toString() : "")
+                .setClientId(workspace.getClientId().toString())
+                .setExpertId(workspace.getExpertId().toString())
+                .setStatus(workspace.getStatus().name())
+                .build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
