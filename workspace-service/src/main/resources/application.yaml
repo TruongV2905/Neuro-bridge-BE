@@ -1,3 +1,4 @@
+
 server:
   port: 8083
   forward-headers-strategy: framework
@@ -79,3 +80,7 @@ grpc:
     jobpost-service:
       address: static://localhost:9094
       negotiation-type: plaintext
+    payment-service:
+      address: static://localhost:9095
+      negotiation-type: plaintext
+debug: true

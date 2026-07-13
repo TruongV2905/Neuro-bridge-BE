@@ -82,6 +82,33 @@ public class WorkspaceSecurityExpression {
         }
     }
 
+    public boolean isProjectClient(UUID projectId) {
+        String currentUserIdStr = getCurrentUserIdFromContext();
+        if (currentUserIdStr == null) {
+            return false;
+        }
+
+        try {
+            UUID currentUserId = UUID.fromString(currentUserIdStr);
+
+            ProjectDetail project = projectRepository.findById(projectId).orElse(null);
+            if (project == null) {
+                log.warn("Project not found with ID: {}", projectId);
+                return false;
+            }
+
+            boolean isClient = project.getWorkspace().getClientId().equals(currentUserId);
+            if (!isClient) {
+                log.warn("Security Alert: User [{}] (not client) attempted to complete Project [{}] in Workspace [{}]",
+                        currentUserId, projectId, project.getWorkspace().getWorkspaceId());
+            }
+            return isClient;
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format during project client validation: {}", currentUserIdStr);
+            return false;
+        }
+    }
+
     /**
      * Hàm Helper bóc tách nhanh chuỗi ID của người dùng đang đăng nhập từ SecurityContext
      */

@@ -24,8 +24,8 @@ public class NotificationEventConsumer {
                     "neural-bridge.jobpost.applied",
                     "neural-bridge.jobpost.accepted",
                     "neural-bridge.contract.sign-required",
-                    "neural-bridge.contract.fully-signed"
-                    // Thêm topic mới ở đây
+                    "neural-bridge.contract.fully-signed",
+                    "neural-bridge.project.completed-payment-released"
             },
             groupId = "notification-service"
     )
