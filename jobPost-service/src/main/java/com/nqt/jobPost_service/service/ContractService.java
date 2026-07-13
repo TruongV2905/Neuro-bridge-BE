@@ -35,6 +35,7 @@ public class ContractService implements IContractService {
     public Contract createContract(UUID jobId, UUID proposalUnlockId,
                                    String clientId, String expertId,
                                    String strategyDetail, BigDecimal unlockCost,
+                                   BigDecimal proposedBudget,
                                    String projectName, LocalDateTime deadline) {
 
         // Chỉ check trùng khi có proposalUnlockId — apply không qua proposal thì bỏ qua
@@ -54,6 +55,7 @@ public class ContractService implements IContractService {
                 .expertId(expertId)
                 .strategyDetail(strategyDetail)
                 .unlockCost(unlockCost)
+                .proposedBudget(proposedBudget)
                 .projectName(projectName)
                 .deadline(deadline)
                 .status(ContractStatus.PENDING)

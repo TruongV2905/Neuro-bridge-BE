@@ -42,6 +42,9 @@ public class Contract {
     @Column(precision = 19, scale = 2)
     BigDecimal unlockCost;
 
+    @Column(precision = 19, scale = 2)
+    BigDecimal proposedBudget;
+
     @Column(nullable = false)
     String projectName;
 

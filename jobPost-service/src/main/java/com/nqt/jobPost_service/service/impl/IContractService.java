@@ -11,6 +11,7 @@ public interface IContractService {
     Contract createContract(UUID jobId, UUID proposalUnlockId,
                             String clientId, String expertId,
                             String strategyDetail, BigDecimal unlockCost,
+                            BigDecimal proposedBudget,
                             String projectName, LocalDateTime deadline);
 
     Contract sign(UUID contractId, String currentUserId);
