@@ -2,9 +2,8 @@ package com.nqt.workspace_service.grpc;
 
 import com.google.protobuf.Timestamp;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
-import com.nqt.workspace_service.entities.Workspace;
-import com.nqt.workspace_service.repositories.WorkspaceRepository;
-import com.nqt.workspace_service.services.interfaces.IWorkspaceInitializationService;
+import com.nqt.workspace_service.entity.Workspace;
+import com.nqt.workspace_service.service.interfaces.IWorkspaceInitializationService;
 import com.workspace.grpc.*;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -24,7 +23,7 @@ public class WorkspaceGrpcServiceImpl extends WorkspaceServiceGrpc.WorkspaceServ
 
     private final IWorkspaceInitializationService workspaceInitializationService;
     private final UserClientService userClientService;
-    private final WorkspaceRepository workspaceRepository;
+    private final com.nqt.workspace_service.repository.WorkspaceRepository workspaceRepository;
 
     @Override
     public void createWorkspace(CreateWorkspaceRequest request,
