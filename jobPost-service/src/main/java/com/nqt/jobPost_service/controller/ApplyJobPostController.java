@@ -7,6 +7,8 @@ import com.nqt.jobPost_service.service.ApplyJobPostService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +47,19 @@ public class ApplyJobPostController {
                         HttpStatus.OK.value(),
                         "Get all apply job posts successfully",
                         applyJobPostService.getAllApplyJobPostByIdJobPost(jobPostId)
+                )
+        );
+    }
+
+    @GetMapping("/my-applies")
+    public ResponseEntity<APIResponse<Page<ApplyJobPostResponse>>> getMyApplies(
+            Pageable pageable
+    ) {
+        return ResponseEntity.ok(
+                APIResponse.response(
+                        HttpStatus.OK.value(),
+                        "Get my applies successfully",
+                        applyJobPostService.getMyApplies(pageable)
                 )
         );
     }
