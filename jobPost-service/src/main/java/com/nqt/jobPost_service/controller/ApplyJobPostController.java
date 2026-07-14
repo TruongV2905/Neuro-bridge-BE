@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springdoc.core.annotations.ParameterObject;
+
 
 import java.util.List;
 import java.util.UUID;
@@ -53,7 +55,7 @@ public class ApplyJobPostController {
 
     @GetMapping("/my-applies")
     public ResponseEntity<APIResponse<Page<ApplyJobPostResponse>>> getMyApplies(
-            Pageable pageable
+            @ParameterObject Pageable pageable
     ) {
         return ResponseEntity.ok(
                 APIResponse.response(
