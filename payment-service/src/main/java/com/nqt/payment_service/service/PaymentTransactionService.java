@@ -403,6 +403,58 @@ public class PaymentTransactionService implements IPaymentTransaction {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public PaymentTransactionResponse releaseProjectEscrow(String escrowId) {
+        ProjectEscrow escrow = projectEscrowService.getEntity(UUID.fromString(escrowId));
+
+        if (escrow.getStatus() != EscrowStatus.FUNDED) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Escrow không ở trạng thái có thể giải ngân: " + escrow.getStatus()
+            );
+        }
+
+        BigDecimal releaseAmount = escrow.getHeldAmount();
+        if (releaseAmount == null || releaseAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Escrow không còn số dư để giải ngân."
+            );
+        }
+
+        String expertCode = escrow.getExpertCode();
+        if (expertCode == null || expertCode.isBlank()) {
+            throw new GlobalException(
+                    ErrorCode.DATA_INVALID.getCode(),
+                    "Escrow chưa gắn expertCode, không thể giải ngân."
+            );
+        }
+
+        // 1. Đóng escrow: set status RELEASED, heldAmount về 0
+        projectEscrowService.release(escrowId);
+
+        // 2. Cộng tiền vào ví Expert
+        userWalletService.deposit(expertCode, releaseAmount);
+
+        // 3. Ghi nhận transaction
+        PaymentTransactionRequest request = PaymentTransactionRequest.builder()
+                .fromUserCode(null)
+                .toUserCode(expertCode)
+                .type(TransactionType.PROJECT_RELEASE)
+                .referenceId(escrowId)
+                .referenceType(PaymentReferenceType.PROJECT)
+                .status(TransactionStatus.SUCCESS)
+                .amount(releaseAmount)
+                .description(buildDescription(TransactionType.PROJECT_RELEASE, null, expertCode))
+                .build();
+
+        log.info("Project escrow released: escrowId={} expertCode={} amount={}",
+                escrowId, expertCode, releaseAmount);
+
+        return create(request);
+    }
+
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------

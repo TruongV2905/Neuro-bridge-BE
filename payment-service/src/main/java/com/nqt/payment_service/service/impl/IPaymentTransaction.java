@@ -71,4 +71,6 @@ public interface IPaymentTransaction {
     );
     PayEscrowResult payOrInitProjectEscrow(UUID jobPostId, String clientCode,
                                            String expertCode, BigDecimal amount);
+
+    PaymentTransactionResponse releaseProjectEscrow(String escrowId);
 }

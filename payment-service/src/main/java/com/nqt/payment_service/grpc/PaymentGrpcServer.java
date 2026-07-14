@@ -1,9 +1,7 @@
 package com.nqt.payment_service.grpc;
 
 import com.nqt.payment_service.service.PaymentTransactionService;
-import com.payment.grpc.PayProjectEscrowRequest;
-import com.payment.grpc.PayProjectEscrowResponse;
-import com.payment.grpc.PaymentServiceGrpc;
+import com.payment.grpc.*;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +45,28 @@ public class PaymentGrpcServer extends PaymentServiceGrpc.PaymentServiceImplBase
             responseObserver.onNext(PayProjectEscrowResponse.newBuilder()
                     .setSuccess(false)
                     .setMessage("Lỗi thanh toán vào ví chung: " + e.getMessage())
+                    .build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void releaseEscrow(ReleaseEscrowRequest request,
+                              StreamObserver<ReleaseEscrowResponse> responseObserver) {
+        try {
+            var result = paymentTransactionService.releaseProjectEscrow(request.getEscrowId());
+
+            responseObserver.onNext(ReleaseEscrowResponse.newBuilder()
+                    .setSuccess(true)
+                    .setMessage("Giải ngân cho Expert thành công")
+                    .setTransactionId(result.getId().toString())
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.error("❌ Lỗi releaseEscrow", e);
+            responseObserver.onNext(ReleaseEscrowResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("Lỗi giải ngân: " + e.getMessage())
                     .build());
             responseObserver.onCompleted();
         }
