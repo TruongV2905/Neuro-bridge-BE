@@ -20,10 +20,13 @@ import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
 import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repository.SubmissionPackageRepository;
 import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
+import com.nqt.workspace_service.repository.WorkspaceRepository;
 import com.nqt.workspace_service.service.interfaces.ISubmissionPackageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,13 +47,19 @@ public class SubmissionPackageService implements ISubmissionPackageService {
     private final UserClientService userClientService;
 //    private final PackageEventPublisher eventPublisher;
     private final NotificationEventPublisher eventPublisher;
+    private final WorkspaceRepository workspaceRepository;
 
     @Override
     @Transactional(readOnly = true)
     public List<PackageRespond> getPackagesByWorkspace(UUID workspaceId, UUID currentUserId) {
         log.info("User {} đang yêu cầu lấy danh sách gói nộp bài của Workspace {}", currentUserId, workspaceId);
 
-        validateWorkspaceAccess(workspaceId, currentUserId);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        validateWorkspaceAccess(workspaceId, currentUserId, isAdmin);
 
         return packageRepository.findByWorkspaceIdAndNotDeleted(workspaceId).stream()
                 .map(this::mapToPackageRespond)
@@ -67,7 +76,12 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
         // Bảo mật chéo: Kiểm tra quyền xem thông qua Workspace ID của gói nộp bài đó
         UUID workspaceId = submissionPackage.getWorkspace().getWorkspaceId();
-        validateWorkspaceAccess(workspaceId, currentUserId);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        validateWorkspaceAccess(workspaceId, currentUserId, isAdmin);
 
         return mapToPackageResRespond(submissionPackage);
     }
@@ -351,20 +365,41 @@ public class SubmissionPackageService implements ISubmissionPackageService {
     /**
      * Phương thức validate dùng chung cho cả class
      */
-    private void validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {
-        memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
+    private void validateWorkspaceAccess(
+            UUID workspaceId,
+            UUID currentUserId,
+            boolean isAdmin) {
+
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy Workspace!"));
+
+        if (!isAdmin
+                && !currentUserId.equals(workspace.getClientId())
+                && !currentUserId.equals(workspace.getExpertId())) {
+
+            throw new AccessDeniedException(
+                    "Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!");
+        }
 
         try {
             var userInfo = userClientService.getUserInfo(currentUserId.toString());
+
             if (userInfo == null) {
                 throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
             }
-            log.info("User {} ({}) đang thực hiện thao tác với Workspace {}", currentUserId, userInfo.getFullName(), workspaceId);
+
+            log.info(
+                    "User {} ({}) đang thao tác với Workspace {}",
+                    currentUserId,
+                    userInfo.getFullName(),
+                    workspaceId
+            );
+
         } catch (IdentityServiceUnavailableException e) {
-            log.warn("⚠️ IdentityService không khả dụng. Fallback: Cho phép thao tác dựa trên xác thực DB nội bộ.");
+            log.warn("⚠️ IdentityService không khả dụng. Fallback: xác thực bằng Workspace.");
         } catch (Exception e) {
-            log.error("Lỗi xác thực gRPC cho user {}: {}", currentUserId, e.getMessage());
+            log.error("Lỗi xác thực gRPC: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi hệ thống xác thực!");
         }
     }
