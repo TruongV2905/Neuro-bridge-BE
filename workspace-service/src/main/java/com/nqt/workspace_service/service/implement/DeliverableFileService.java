@@ -8,21 +8,22 @@ import com.nqt.workspace_service.dto.request.UpdateFileRequest;
 import com.nqt.workspace_service.dto.response.DeliverableFileRespond;
 import com.nqt.workspace_service.entity.DeliverableFile;
 import com.nqt.workspace_service.entity.SubmissionPackage;
-import com.nqt.workspace_service.entity.WorkspaceMember;
+import com.nqt.workspace_service.entity.Workspace;
 import com.nqt.workspace_service.constant.FileStatus;
 import com.nqt.workspace_service.constant.PackageStatus;
-import com.nqt.workspace_service.constant.WorkspaceRole;
 import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
 import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repository.DeliverableFileRepository;
 import com.nqt.workspace_service.repository.SubmissionPackageRepository;
-import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
+import com.nqt.workspace_service.repository.WorkspaceRepository;
 import com.nqt.workspace_service.service.interfaces.IDeliverableFileService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,8 +38,8 @@ import java.util.stream.Collectors;
 public class DeliverableFileService implements IDeliverableFileService {
 
     private final DeliverableFileRepository fileRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final SubmissionPackageRepository packageRepository;
+    private final WorkspaceRepository workspaceRepository;
     private final UserClientService userClientService;
     private final NotificationEventPublisher eventPublisher;
 
@@ -55,7 +56,7 @@ public class DeliverableFileService implements IDeliverableFileService {
             throw new IllegalArgumentException("Không tìm thấy gói nộp bài này!");
         }
 
-        validateWorkspaceAccess(workspaceId, currentUserId);
+        validateWorkspaceAccess(workspaceId, currentUserId, isAdmin());
 
         return fileRepository.findByPackageIdAndNotDeleted(packageId).stream()
                 .map(this::mapToResponse)
@@ -71,11 +72,11 @@ public class DeliverableFileService implements IDeliverableFileService {
         if (workspaceId == null) {
             throw new IllegalArgumentException("Gói nộp bài không tồn tại!");
         }
-        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
 
-        if ("EXPERT".equalsIgnoreCase(member.getRole().name())) { // Sửa lại m.getRole() tùy theo Enum của bạn
-            throw new AccessDeniedException("Chuyên gia không nộp bài bằng luồng này!");
-        }
+        Workspace workspace = getWorkspace(workspaceId);
+
+        // Chỉ EXPERT (hoặc ADMIN) được thêm file
+        validateExpert(workspace, currentUserId);
 
         SubmissionPackage submissionPackage = entityManager.getReference(SubmissionPackage.class, req.packageId());
 
@@ -104,12 +105,10 @@ public class DeliverableFileService implements IDeliverableFileService {
             throw new IllegalArgumentException("File này đã bị xóa trước đó, không thể chỉnh sửa.");
         }
 
-        UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
-        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
+        Workspace workspace = file.getSubmissionPackage().getWorkspace();
 
-        if ("EXPERT".equalsIgnoreCase(member.getRole().name())) {
-            throw new AccessDeniedException("Chuyên gia không có quyền chỉnh sửa file bàn giao của sinh viên!");
-        }
+        // Chỉ EXPERT (hoặc ADMIN) mới có quyền chỉnh sửa file bàn giao
+        validateExpert(workspace, currentUserId);
 
         file.setFileName(req.fileName());
         file.setFileUrl(req.fileUrl());
@@ -129,12 +128,10 @@ public class DeliverableFileService implements IDeliverableFileService {
         DeliverableFile file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy file yêu cầu!"));
 
-        UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
-        WorkspaceMember member = validateWorkspaceAccess(workspaceId, currentUserId);
+        Workspace workspace = file.getSubmissionPackage().getWorkspace();
 
-        if ("EXPERT".equalsIgnoreCase(member.getRole().name())) {
-            throw new AccessDeniedException("Chuyên gia không có quyền gỡ tập tin sản phẩm của sinh viên!");
-        }
+        // Chỉ EXPERT (hoặc ADMIN) mới có quyền gỡ file
+        validateExpert(workspace, currentUserId);
 
         file.setIsDelete(true);
         fileRepository.save(file);
@@ -147,15 +144,10 @@ public class DeliverableFileService implements IDeliverableFileService {
         DeliverableFile file = fileRepository.findById(req.fileId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy file!"));
 
-        // Chỉ CLIENT mới được review
-        UUID workspaceId = file.getSubmissionPackage().getWorkspace().getWorkspaceId();
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc Workspace này!"));
+        Workspace workspace = file.getSubmissionPackage().getWorkspace();
 
-        if (!WorkspaceRole.CLIENT.equals(member.getRole())) {
-            throw new AccessDeniedException("Chỉ CLIENT mới được review file!");
-        }
+        // Chỉ CLIENT (hoặc ADMIN) mới được review
+        validateClient(workspace, currentUserId);
 
         // Không cho review file đã APPROVED hoặc SUPERSEDED
         if (FileStatus.APPROVED.equals(file.getFileStatus()) ||
@@ -174,21 +166,14 @@ public class DeliverableFileService implements IDeliverableFileService {
         file.setFeedback(req.feedback());
         DeliverableFile saved = fileRepository.save(file);
 
-        // Kiểm tra tự động update PackageStatus
-        WorkspaceMember reviewer = memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow();
+        String reviewerName = resolveUserName(currentUserId);
 
-        updatePackageStatusIfNeeded(file.getSubmissionPackage(),
-                currentUserId,
-                reviewer.getName());
+        updatePackageStatusIfNeeded(file.getSubmissionPackage(), reviewerName);
 
         return mapToResponse(saved);
     }
 
-    private void updatePackageStatusIfNeeded(SubmissionPackage pkg,
-                                             UUID reviewerId,
-                                             String reviewerName) {
+    private void updatePackageStatusIfNeeded(SubmissionPackage pkg, String reviewerName) {
         List<DeliverableFile> files = pkg.getDeliverableFiles().stream()
                 .filter(f -> !Boolean.TRUE.equals(f.getIsDelete()))
                 .toList();
@@ -200,7 +185,9 @@ public class DeliverableFileService implements IDeliverableFileService {
                 .anyMatch(f -> FileStatus.REJECTED.equals(f.getFileStatus()) ||
                         FileStatus.REVISION_REQUIRED.equals(f.getFileStatus()));
 
-        UUID workspaceId = pkg.getWorkspace().getWorkspaceId();
+        Workspace workspace = pkg.getWorkspace();
+        UUID workspaceId = workspace.getWorkspaceId();
+        UUID expertId = workspace.getExpertId();
 
         if (allApproved) {
             if (PackageStatus.APPROVED.equals(pkg.getStatus())) {
@@ -208,12 +195,6 @@ public class DeliverableFileService implements IDeliverableFileService {
             }
             pkg.setStatus(PackageStatus.APPROVED);
             packageRepository.save(pkg);
-
-            // Lấy EXPERT để gửi thông báo
-            UUID expertId = memberRepository
-                    .findByWorkspaceIdAndRole(workspaceId, WorkspaceRole.EXPERT)
-                    .map(WorkspaceMember::getUserId)
-                    .orElse(null);
 
             if (expertId != null) {
                 eventPublisher.publish(
@@ -242,12 +223,6 @@ public class DeliverableFileService implements IDeliverableFileService {
             pkg.setStatus(PackageStatus.REJECTED);
             packageRepository.save(pkg);
 
-            // Lấy EXPERT để gửi thông báo
-            UUID expertId = memberRepository
-                    .findByWorkspaceIdAndRole(workspaceId, WorkspaceRole.EXPERT)
-                    .map(WorkspaceMember::getUserId)
-                    .orElse(null);
-
             if (expertId != null) {
                 // Gom feedback của các file bị reject
                 String feedback = files.stream()
@@ -272,26 +247,91 @@ public class DeliverableFileService implements IDeliverableFileService {
         }
     }
 
-    private WorkspaceMember validateWorkspaceAccess(UUID workspaceId, UUID currentUserId) {
-        // 1. Kiểm tra quyền thành viên trong DB (Quyền truy cập phòng)
-        WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!"));
-
-        // 2. Kiểm tra danh tính qua gRPC (Cơ chế Fallback)
+    private String resolveUserName(UUID userId) {
         try {
-            var userInfo = userClientService.getUserInfo(currentUserId.toString());
-            if (userInfo == null) {
-                throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
-            }
-            log.info("User {} (Name: {}) đang thực hiện thao tác trên Workspace {}", currentUserId, userInfo.getFullName(), workspaceId);
+            return userClientService.getUserInfo(userId.toString()).getFullName();
         } catch (IdentityServiceUnavailableException e) {
-            log.warn("⚠️ IdentityService không khả dụng. Cho phép thao tác dựa trên xác thực DB.");
-        } catch (Exception e) {
-            log.error("Lỗi xác thực gRPC cho user {}: {}", currentUserId, e.getMessage());
-            throw new RuntimeException("Lỗi hệ thống xác thực!");
+            log.warn("Identity Service unavailable, bỏ qua senderName.");
+            return null;
+        }
+    }
+
+    private Workspace getWorkspace(UUID workspaceId) {
+        return workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy Workspace!"));
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
+    private void validateExpert(Workspace workspace, UUID currentUserId) {
+
+        if (isAdmin()) {
+            return;
         }
 
-        return member;
+        if (!currentUserId.equals(workspace.getExpertId())) {
+            throw new AccessDeniedException(
+                    "Chỉ EXPERT của Workspace mới được thực hiện thao tác này!");
+        }
+    }
+
+    private void validateClient(Workspace workspace, UUID currentUserId) {
+
+        if (isAdmin()) {
+            return;
+        }
+
+        if (!currentUserId.equals(workspace.getClientId())) {
+            throw new AccessDeniedException(
+                    "Chỉ CLIENT của Workspace mới được thực hiện thao tác này!");
+        }
+    }
+
+    private void validateWorkspaceAccess(
+            UUID workspaceId,
+            UUID currentUserId,
+            boolean isAdmin) {
+
+        Workspace workspace = getWorkspace(workspaceId);
+
+        if (!isAdmin
+                && !currentUserId.equals(workspace.getClientId())
+                && !currentUserId.equals(workspace.getExpertId())) {
+
+            throw new AccessDeniedException(
+                    "Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!");
+        }
+
+        try {
+
+            var userInfo = userClientService.getUserInfo(currentUserId.toString());
+
+            if (userInfo == null) {
+                throw new IllegalStateException("Người dùng không tồn tại!");
+            }
+
+            log.info(
+                    "User {} ({}) đang thao tác Workspace {}",
+                    currentUserId,
+                    userInfo.getFullName(),
+                    workspaceId
+            );
+
+        } catch (IdentityServiceUnavailableException e) {
+
+            log.warn("Identity Service unavailable. Skip user info.");
+
+        } catch (Exception e) {
+
+            log.error("Identity Error", e);
+            throw new RuntimeException("Lỗi hệ thống xác thực.");
+
+        }
     }
 
     private DeliverableFileRespond mapToResponse(DeliverableFile file) {
