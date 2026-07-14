@@ -11,15 +11,12 @@ import com.nqt.workspace_service.dto.response.PackageRespond;
 import com.nqt.workspace_service.entity.DeliverableFile;
 import com.nqt.workspace_service.entity.SubmissionPackage;
 import com.nqt.workspace_service.entity.Workspace;
-import com.nqt.workspace_service.entity.WorkspaceMember;
 import com.nqt.workspace_service.constant.FileStatus;
 import com.nqt.workspace_service.constant.FileType;
 import com.nqt.workspace_service.constant.PackageStatus;
-import com.nqt.workspace_service.constant.WorkspaceRole;
 import com.nqt.workspace_service.grpc.IdentityServiceUnavailableException;
 import com.nqt.workspace_service.grpc.UserClientService;
 import com.nqt.workspace_service.repository.SubmissionPackageRepository;
-import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
 import com.nqt.workspace_service.repository.WorkspaceRepository;
 import com.nqt.workspace_service.service.interfaces.ISubmissionPackageService;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +40,6 @@ import java.util.stream.Collectors;
 public class SubmissionPackageService implements ISubmissionPackageService {
 
     private final SubmissionPackageRepository packageRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final UserClientService userClientService;
 //    private final PackageEventPublisher eventPublisher;
     private final NotificationEventPublisher eventPublisher;
@@ -51,85 +47,94 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PackageRespond> getPackagesByWorkspace(UUID workspaceId, UUID currentUserId) {
-        log.info("User {} đang yêu cầu lấy danh sách gói nộp bài của Workspace {}", currentUserId, workspaceId);
+    public List<PackageRespond> getPackagesByWorkspace(
+            UUID workspaceId,
+            UUID currentUserId) {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        log.info(
+                "User {} lấy package của Workspace {}",
+                currentUserId,
+                workspaceId
+        );
 
-        boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        validateWorkspaceAccess(
+                workspaceId,
+                currentUserId,
+                isAdmin()
+        );
 
-        validateWorkspaceAccess(workspaceId, currentUserId, isAdmin);
-
-        return packageRepository.findByWorkspaceIdAndNotDeleted(workspaceId).stream()
+        return packageRepository
+                .findByWorkspaceIdAndNotDeleted(workspaceId)
+                .stream()
                 .map(this::mapToPackageRespond)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PackageResRespond getPackageById(UUID packageId, UUID currentUserId) {
-        log.info("User {} đang yêu cầu lấy thông tin chi tiết gói nộp bài {}", currentUserId, packageId);
+    public PackageResRespond getPackageById(
+            UUID packageId,
+            UUID currentUserId) {
 
-        SubmissionPackage submissionPackage = packageRepository.findByIdAndNotDeleted(packageId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy gói nộp bài yêu cầu hoặc đã bị xóa!"));
+        SubmissionPackage pkg = packageRepository
+                .findByIdAndNotDeleted(packageId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy package."));
 
-        // Bảo mật chéo: Kiểm tra quyền xem thông qua Workspace ID của gói nộp bài đó
-        UUID workspaceId = submissionPackage.getWorkspace().getWorkspaceId();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        validateWorkspaceAccess(
+                pkg.getWorkspace().getWorkspaceId(),
+                currentUserId,
+                isAdmin()
+        );
 
-        boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
-        validateWorkspaceAccess(workspaceId, currentUserId, isAdmin);
-
-        return mapToPackageResRespond(submissionPackage);
+        return mapToPackageResRespond(pkg);
     }
 
     @Override
     @Transactional
-    public PackageRespond submitPackage(SubmitPackageRequest request, UUID currentUserId) {
+    public PackageRespond submitPackage(
+            SubmitPackageRequest request,
+            UUID currentUserId) {
 
-        // Validate: chỉ EXPERT mới nộp
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(request.getWorkspaceId(), currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc Workspace này!"));
+        Workspace workspace = getWorkspace(request.getWorkspaceId());
 
-        if (!WorkspaceRole.EXPERT.equals(member.getRole())) {
-            throw new AccessDeniedException("Chỉ EXPERT mới được nộp bài!");
-        }
+        // Chỉ Expert của Workspace được submit
+        validateExpert(workspace, currentUserId);
 
-        // Validate: không có package PENDING đang chờ
+        // Không cho submit nếu đang có package PENDING
         boolean hasPending = packageRepository
                 .findByWorkspaceIdAndNotDeleted(request.getWorkspaceId())
                 .stream()
-                .anyMatch(sp -> PackageStatus.PENDING.equals(sp.getStatus()));
+                .anyMatch(p -> PackageStatus.PENDING.equals(p.getStatus()));
+
         if (hasPending) {
-            throw new IllegalStateException("Đang có gói nộp bài chờ review, không thể nộp thêm!");
+            throw new IllegalStateException(
+                    "Đang có package chờ review, không thể nộp thêm.");
         }
 
-        // Validate: đủ 4 file, mỗi FileType xuất hiện đúng 1 lần
+        // Validate đủ file
         validateFiles(request.getFiles());
 
         int nextVersion = packageRepository
                 .findMaxVersionByWorkspaceId(request.getWorkspaceId())
                 .orElse(0) + 1;
 
-        int releaseDays = request.getCustomReleaseDays() != null ? request.getCustomReleaseDays() : 7;
-
-        Workspace workspace = new Workspace();
-        workspace.setWorkspaceId(request.getWorkspaceId());
+        int releaseDays =
+                request.getCustomReleaseDays() == null
+                        ? 7
+                        : request.getCustomReleaseDays();
 
         SubmissionPackage pkg = SubmissionPackage.builder()
                 .workspace(workspace)
                 .version(nextVersion)
                 .notes(request.getNotes())
-                .autoReleaseAt(LocalDateTime.now().plusDays(releaseDays))
                 .status(PackageStatus.PENDING)
+                .autoReleaseAt(LocalDateTime.now().plusDays(releaseDays))
                 .isDelete(false)
                 .build();
 
-        List<DeliverableFile> files = request.getFiles().stream()
+        List<DeliverableFile> files = request.getFiles()
+                .stream()
                 .map(f -> DeliverableFile.builder()
                         .submissionPackage(pkg)
                         .fileName(f.fileName())
@@ -142,46 +147,67 @@ public class SubmissionPackageService implements ISubmissionPackageService {
                 .collect(Collectors.toList());
 
         pkg.getDeliverableFiles().addAll(files);
+
         SubmissionPackage saved = packageRepository.save(pkg);
 
-        UUID reviewerId = memberRepository
-                .findByWorkspaceIdAndRole(request.getWorkspaceId(), WorkspaceRole.CLIENT)
-                .map(WorkspaceMember::getUserId)
-                .orElse(null); // null thì notification-service không gửi được
+        try {
 
-        if (reviewerId != null) {
+            var sender = userClientService.getUserInfo(currentUserId.toString());
+
             eventPublisher.publish(
                     NotificationEventPublisher.PACKAGE_SUBMITTED,
                     NotificationEvent.builder()
                             .eventType("PACKAGE_SUBMITTED")
-                            .recipientUserId(reviewerId)
-                            .senderName(member.getName())
+                            .recipientUserId(workspace.getClientId())
+                            .senderName(sender.getFullName())
                             .resourceId(saved.getPackageId())
-                            .workspaceId(request.getWorkspaceId())
+                            .workspaceId(workspace.getWorkspaceId())
                             .resourceVersion(String.valueOf(saved.getVersion()))
                             .build()
             );
+
+        } catch (IdentityServiceUnavailableException ex) {
+
+            log.warn("Identity Service unavailable, bỏ qua senderName.");
+
+            eventPublisher.publish(
+                    NotificationEventPublisher.PACKAGE_SUBMITTED,
+                    NotificationEvent.builder()
+                            .eventType("PACKAGE_SUBMITTED")
+                            .recipientUserId(workspace.getClientId())
+                            .resourceId(saved.getPackageId())
+                            .workspaceId(workspace.getWorkspaceId())
+                            .resourceVersion(String.valueOf(saved.getVersion()))
+                            .build()
+            );
+
         }
-        // ─────────────────────────────────────────────────────────────────────
-        return mapToPackageRespond(packageRepository.save(pkg));
+
+        return mapToPackageRespond(saved);
     }
 
     @Override
     @Transactional
-    public PackageRespond approvePackage(ReviewPackageRequest request, UUID currentUserId) {
-        log.info("User {} đang APPROVE gói nộp bài {}", currentUserId, request.getPackageId());
+    public PackageRespond approvePackage(
+            ReviewPackageRequest request,
+            UUID currentUserId) {
 
-        SubmissionPackage pkg = packageRepository.findByIdAndNotDeleted(request.getPackageId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy gói nộp bài!"));
+        log.info("User {} APPROVE package {}", currentUserId, request.getPackageId());
+
+        SubmissionPackage pkg = packageRepository
+                .findByIdAndNotDeleted(request.getPackageId())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy gói nộp bài!"));
 
         if (!PackageStatus.PENDING.equals(pkg.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể review gói đang ở trạng thái PENDING!");
+            throw new IllegalStateException(
+                    "Chỉ có thể review package đang ở trạng thái PENDING!");
         }
 
-        // Chỉ CLIENT mới được approve
-        memberRepository.findByWorkspaceIdAndUserId(pkg.getWorkspace().getWorkspaceId(), currentUserId)
-                .filter(m -> WorkspaceRole.CLIENT.name().equals(m.getRole()))
-                .orElseThrow(() -> new AccessDeniedException("Chỉ CLIENT mới được approve gói nộp bài!"));
+        Workspace workspace = getWorkspace(pkg.getWorkspace().getWorkspaceId());
+
+        // Chỉ CLIENT của workspace mới được approve
+        validateClient(workspace, currentUserId);
 
         pkg.setStatus(PackageStatus.APPROVED);
         pkg.setFeedback(request.getFeedback());
@@ -192,24 +218,31 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
     @Override
     @Transactional
-    public PackageRespond rejectPackage(ReviewPackageRequest request, UUID currentUserId) {
-        log.info("User {} đang REJECT gói nộp bài {}", currentUserId, request.getPackageId());
+    public PackageRespond rejectPackage(
+            ReviewPackageRequest request,
+            UUID currentUserId) {
 
-        SubmissionPackage pkg = packageRepository.findByIdAndNotDeleted(request.getPackageId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy gói nộp bài!"));
+        log.info("User {} REJECT package {}", currentUserId, request.getPackageId());
+
+        SubmissionPackage pkg = packageRepository
+                .findByIdAndNotDeleted(request.getPackageId())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy gói nộp bài!"));
 
         if (!PackageStatus.PENDING.equals(pkg.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể review gói đang ở trạng thái PENDING!");
+            throw new IllegalStateException(
+                    "Chỉ có thể review package đang ở trạng thái PENDING!");
         }
 
         if (request.getFeedback() == null || request.getFeedback().isBlank()) {
-            throw new IllegalArgumentException("Phải có feedback khi REJECT!");
+            throw new IllegalArgumentException(
+                    "Phải có feedback khi reject!");
         }
 
+        Workspace workspace = getWorkspace(pkg.getWorkspace().getWorkspaceId());
+
         // Chỉ CLIENT mới được reject
-        memberRepository.findByWorkspaceIdAndUserId(pkg.getWorkspace().getWorkspaceId(), currentUserId)
-                .filter(m -> WorkspaceRole.CLIENT.name().equals(m.getRole()))
-                .orElseThrow(() -> new AccessDeniedException("Chỉ CLIENT mới được reject gói nộp bài!"));
+        validateClient(workspace, currentUserId);
 
         pkg.setStatus(PackageStatus.REJECTED);
         pkg.setFeedback(request.getFeedback());
@@ -220,188 +253,195 @@ public class SubmissionPackageService implements ISubmissionPackageService {
 
     @Override
     @Transactional
-    public void deletePackage(UUID packageId, UUID currentUserId) {
-        log.info("User {} đang xóa gói nộp bài {}", currentUserId, packageId);
+    public void deletePackage(
+            UUID packageId,
+            UUID currentUserId) {
 
-        SubmissionPackage pkg = packageRepository.findByIdAndNotDeleted(packageId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy gói nộp bài!"));
+        log.info("User {} DELETE package {}", currentUserId, packageId);
+
+        SubmissionPackage pkg = packageRepository
+                .findByIdAndNotDeleted(packageId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy package!"));
 
         if (!PackageStatus.PENDING.equals(pkg.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể xóa gói đang ở trạng thái PENDING!");
+            throw new IllegalStateException(
+                    "Chỉ có thể xóa package đang ở trạng thái PENDING!");
         }
 
-        // Chỉ EXPERT (người nộp) mới được xóa
-        memberRepository.findByWorkspaceIdAndUserId(pkg.getWorkspace().getWorkspaceId(), currentUserId)
-                .filter(m -> WorkspaceRole.EXPERT.name().equals(m.getRole()))
-                .orElseThrow(() -> new AccessDeniedException("Chỉ EXPERT mới được xóa gói nộp bài!"));
+        Workspace workspace = getWorkspace(pkg.getWorkspace().getWorkspaceId());
+
+        // Chỉ EXPERT mới được xóa
+        validateExpert(workspace, currentUserId);
 
         pkg.setIsDelete(true);
+
         packageRepository.save(pkg);
     }
 
     @Override
     @Transactional
-    public PackageRespond resubmitPackage(ResubmitPackageRequest request, UUID currentUserId) {
+    public PackageRespond resubmitPackage(
+            ResubmitPackageRequest request,
+            UUID currentUserId) {
 
-        // Lấy package cũ
-        SubmissionPackage oldPkg = packageRepository.findByIdAndNotDeleted(request.getCurrentPackageId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy package!"));
+        // Package cũ
+        SubmissionPackage oldPkg = packageRepository
+                .findByIdAndNotDeleted(request.getCurrentPackageId())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy package!"));
 
-        // Chỉ EXPERT của workspace đó mới được resubmit
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(oldPkg.getWorkspace().getWorkspaceId(), currentUserId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc Workspace này!"));
+        Workspace workspace = getWorkspace(
+                oldPkg.getWorkspace().getWorkspaceId());
 
-        if (!WorkspaceRole.EXPERT.equals(member.getRole())) {
-            throw new AccessDeniedException("Chỉ EXPERT mới được nộp lại!");
-        }
+        // Chỉ Expert mới được resubmit
+        validateExpert(workspace, currentUserId);
 
-        Set<FileType> approvedTypes = oldPkg.getDeliverableFiles().stream()
+        // Không cho sửa file đã APPROVED
+        Set<FileType> approvedTypes = oldPkg.getDeliverableFiles()
+                .stream()
                 .filter(f -> FileStatus.APPROVED.equals(f.getFileStatus()))
                 .map(DeliverableFile::getFileType)
                 .collect(Collectors.toSet());
 
-        List<FileType> invalidUpdates = request.getUpdatedFiles().stream()
+        List<FileType> invalidUpdates = request.getUpdatedFiles()
+                .stream()
                 .map(DeliverableFileRequest::fileType)
                 .filter(approvedTypes::contains)
                 .collect(Collectors.toList());
 
         if (!invalidUpdates.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Không thể thay đổi file đã được APPROVED: " + invalidUpdates);
+                    "Không thể thay đổi file đã APPROVED: "
+                            + invalidUpdates);
         }
 
-        // Chỉ cho resubmit khi package cũ đang PENDING hoặc REJECTED
-        if (PackageStatus.APPROVED.equals(oldPkg.getStatus()) ||
-                PackageStatus.SUPERSEDED.equals(oldPkg.getStatus())) {
-            throw new IllegalStateException("Không thể nộp lại package đã APPROVED hoặc SUPERSEDED!");
+        // Chỉ resubmit khi package chưa APPROVED
+        if (PackageStatus.APPROVED.equals(oldPkg.getStatus())
+                || PackageStatus.SUPERSEDED.equals(oldPkg.getStatus())) {
+
+            throw new IllegalStateException(
+                    "Không thể nộp lại package đã APPROVED hoặc SUPERSEDED!");
         }
 
-        // Đánh dấu package cũ là SUPERSEDED
+        // Package cũ -> SUPERSEDED
         oldPkg.setStatus(PackageStatus.SUPERSEDED);
-        oldPkg.getDeliverableFiles().forEach(f -> {
-            if (!FileStatus.APPROVED.equals(f.getFileStatus())) {
-                f.setFileStatus(FileStatus.SUPERSEDED);
+
+        oldPkg.getDeliverableFiles().forEach(file -> {
+
+            if (!FileStatus.APPROVED.equals(file.getFileStatus())) {
+                file.setFileStatus(FileStatus.SUPERSEDED);
             }
+
         });
+
         packageRepository.save(oldPkg);
 
-        // Tạo package mới version tiếp theo
+        // Version mới
         int nextVersion = packageRepository
-                .findMaxVersionByWorkspaceId(oldPkg.getWorkspace().getWorkspaceId())
+                .findMaxVersionByWorkspaceId(workspace.getWorkspaceId())
                 .orElse(0) + 1;
 
         SubmissionPackage newPkg = SubmissionPackage.builder()
-                .workspace(oldPkg.getWorkspace())
+                .workspace(workspace)
                 .version(nextVersion)
                 .notes(request.getNotes())
-                .autoReleaseAt(LocalDateTime.now().plusDays(7))
                 .status(PackageStatus.PENDING)
+                .autoReleaseAt(LocalDateTime.now().plusDays(7))
                 .isDelete(false)
                 .build();
 
-        // Map các fileType expert muốn update
-        Map<FileType, DeliverableFileRequest> updatedMap = request.getUpdatedFiles().stream()
-                .collect(Collectors.toMap(DeliverableFileRequest::fileType, f -> f));
+        // Các file expert upload mới
+        Map<FileType, DeliverableFileRequest> updatedMap =
+                request.getUpdatedFiles()
+                        .stream()
+                        .collect(Collectors.toMap(
+                                DeliverableFileRequest::fileType,
+                                f -> f
+                        ));
 
-        // Copy file APPROVED từ package cũ, thay thế file bị REJECTED/REVISION_REQUIRED/PENDING
-        List<DeliverableFile> newFiles = oldPkg.getDeliverableFiles().stream()
-                .map(oldFile -> {
-                    if (FileStatus.APPROVED.equals(oldFile.getFileStatus())) {
-                        // Giữ nguyên file đã APPROVED, copy sang package mới
-                        return DeliverableFile.builder()
-                                .submissionPackage(newPkg)
-                                .fileName(oldFile.getFileName())
-                                .fileUrl(oldFile.getFileUrl())
-                                .fileSize(oldFile.getFileSize())
-                                .fileType(oldFile.getFileType())
-                                .fileStatus(FileStatus.APPROVED) // Giữ trạng thái APPROVED
-                                .isDelete(false)
-                                .build();
-                    } else {
-                        // Thay bằng file mới từ expert
-                        DeliverableFileRequest newFile = updatedMap.get(oldFile.getFileType());
-                        if (newFile == null) {
-                            throw new IllegalArgumentException(
-                                    "Thiếu file cho loại: " + oldFile.getFileType());
-                        }
-                        return DeliverableFile.builder()
-                                .submissionPackage(newPkg)
-                                .fileName(newFile.fileName())
-                                .fileUrl(newFile.fileUrl())
-                                .fileSize(newFile.fileSize())
-                                .fileType(newFile.fileType())
-                                .fileStatus(FileStatus.PENDING)
-                                .isDelete(false)
-                                .build();
-                    }
-                })
-                .collect(Collectors.toList());
+        List<DeliverableFile> files =
+                oldPkg.getDeliverableFiles()
+                        .stream()
+                        .map(oldFile -> {
 
-        newPkg.getDeliverableFiles().addAll(newFiles);
+                            if (FileStatus.APPROVED.equals(oldFile.getFileStatus())) {
+
+                                return DeliverableFile.builder()
+                                        .submissionPackage(newPkg)
+                                        .fileName(oldFile.getFileName())
+                                        .fileUrl(oldFile.getFileUrl())
+                                        .fileSize(oldFile.getFileSize())
+                                        .fileType(oldFile.getFileType())
+                                        .fileStatus(FileStatus.APPROVED)
+                                        .isDelete(false)
+                                        .build();
+                            }
+
+                            DeliverableFileRequest updated =
+                                    updatedMap.get(oldFile.getFileType());
+
+                            if (updated == null) {
+                                throw new IllegalArgumentException(
+                                        "Thiếu file cho loại: "
+                                                + oldFile.getFileType());
+                            }
+
+                            return DeliverableFile.builder()
+                                    .submissionPackage(newPkg)
+                                    .fileName(updated.fileName())
+                                    .fileUrl(updated.fileUrl())
+                                    .fileSize(updated.fileSize())
+                                    .fileType(updated.fileType())
+                                    .fileStatus(FileStatus.PENDING)
+                                    .isDelete(false)
+                                    .build();
+
+                        })
+                        .collect(Collectors.toList());
+
+        newPkg.getDeliverableFiles().addAll(files);
+
         SubmissionPackage saved = packageRepository.save(newPkg);
-        UUID clientId = memberRepository
-                .findByWorkspaceIdAndRole(oldPkg.getWorkspace().getWorkspaceId(), WorkspaceRole.CLIENT)
-                .map(WorkspaceMember::getUserId)
-                .orElse(null);
 
-        if (clientId != null) {
+        // Notification
+        try {
+
+            var sender =
+                    userClientService.getUserInfo(currentUserId.toString());
+
             eventPublisher.publish(
                     NotificationEventPublisher.PACKAGE_RESUBMITTED,
                     NotificationEvent.builder()
                             .eventType("PACKAGE_RESUBMITTED")
-                            .recipientUserId(clientId)
-                            .senderName(member.getName())
+                            .recipientUserId(workspace.getClientId())
+                            .senderName(sender.getFullName())
                             .resourceId(saved.getPackageId())
-                            .workspaceId(saved.getWorkspace().getWorkspaceId())
-                            .resourceVersion(String.valueOf(saved.getVersion()))
+                            .workspaceId(workspace.getWorkspaceId())
+                            .resourceVersion(
+                                    String.valueOf(saved.getVersion()))
                             .build()
             );
-        }
 
-        return mapToPackageRespond(packageRepository.save(newPkg));
-    }
+        } catch (IdentityServiceUnavailableException ex) {
 
-    /**
-     * Phương thức validate dùng chung cho cả class
-     */
-    private void validateWorkspaceAccess(
-            UUID workspaceId,
-            UUID currentUserId,
-            boolean isAdmin) {
+            log.warn("Identity Service unavailable.");
 
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Không tìm thấy Workspace!"));
-
-        if (!isAdmin
-                && !currentUserId.equals(workspace.getClientId())
-                && !currentUserId.equals(workspace.getExpertId())) {
-
-            throw new AccessDeniedException(
-                    "Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!");
-        }
-
-        try {
-            var userInfo = userClientService.getUserInfo(currentUserId.toString());
-
-            if (userInfo == null) {
-                throw new IllegalStateException("Người dùng không tồn tại trên hệ thống!");
-            }
-
-            log.info(
-                    "User {} ({}) đang thao tác với Workspace {}",
-                    currentUserId,
-                    userInfo.getFullName(),
-                    workspaceId
+            eventPublisher.publish(
+                    NotificationEventPublisher.PACKAGE_RESUBMITTED,
+                    NotificationEvent.builder()
+                            .eventType("PACKAGE_RESUBMITTED")
+                            .recipientUserId(workspace.getClientId())
+                            .resourceId(saved.getPackageId())
+                            .workspaceId(workspace.getWorkspaceId())
+                            .resourceVersion(
+                                    String.valueOf(saved.getVersion()))
+                            .build()
             );
 
-        } catch (IdentityServiceUnavailableException e) {
-            log.warn("⚠️ IdentityService không khả dụng. Fallback: xác thực bằng Workspace.");
-        } catch (Exception e) {
-            log.error("Lỗi xác thực gRPC: {}", e.getMessage(), e);
-            throw new RuntimeException("Lỗi hệ thống xác thực!");
         }
+
+        return mapToPackageRespond(saved);
     }
 
     private PackageRespond mapToPackageRespond(SubmissionPackage sp) {
@@ -458,6 +498,85 @@ public class SubmissionPackageService implements ISubmissionPackageService {
                 .collect(Collectors.toSet());
         if (types.size() != FileType.values().length) {
             throw new IllegalArgumentException("Mỗi loại FileType chỉ được upload 1 file!");
+        }
+    }
+
+    private Workspace getWorkspace(UUID workspaceId) {
+        return workspaceRepository.findById(workspaceId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Không tìm thấy Workspace!"));
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
+    private void validateExpert(Workspace workspace, UUID currentUserId) {
+
+        if (isAdmin()) {
+            return;
+        }
+
+        if (!currentUserId.equals(workspace.getExpertId())) {
+            throw new AccessDeniedException(
+                    "Chỉ EXPERT của Workspace mới được thực hiện thao tác này!");
+        }
+    }
+
+    private void validateClient(Workspace workspace, UUID currentUserId) {
+
+        if (isAdmin()) {
+            return;
+        }
+
+        if (!currentUserId.equals(workspace.getClientId())) {
+            throw new AccessDeniedException(
+                    "Chỉ CLIENT của Workspace mới được thực hiện thao tác này!");
+        }
+    }
+
+    private void validateWorkspaceAccess(
+            UUID workspaceId,
+            UUID currentUserId,
+            boolean isAdmin) {
+
+        Workspace workspace = getWorkspace(workspaceId);
+
+        if (!isAdmin
+                && !currentUserId.equals(workspace.getClientId())
+                && !currentUserId.equals(workspace.getExpertId())) {
+
+            throw new AccessDeniedException(
+                    "Quyền truy cập bị từ chối: Bạn không thuộc Workspace này!");
+        }
+
+        try {
+
+            var userInfo = userClientService.getUserInfo(currentUserId.toString());
+
+            if (userInfo == null) {
+                throw new IllegalStateException("Người dùng không tồn tại!");
+            }
+
+            log.info(
+                    "User {} ({}) đang thao tác Workspace {}",
+                    currentUserId,
+                    userInfo.getFullName(),
+                    workspaceId
+            );
+
+        } catch (IdentityServiceUnavailableException e) {
+
+            log.warn("Identity Service unavailable. Skip user info.");
+
+        } catch (Exception e) {
+
+            log.error("Identity Error", e);
+            throw new RuntimeException("Lỗi hệ thống xác thực.");
+
         }
     }
 }
