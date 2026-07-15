@@ -17,6 +17,7 @@ public class ContractResponse {
     UUID proposalUnlockId;
     String strategyDetail;
     BigDecimal unlockCost;
+    BigDecimal proposedBudget;
     boolean clientSigned;
     boolean expertSigned;
     String status;

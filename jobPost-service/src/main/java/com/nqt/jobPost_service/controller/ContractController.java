@@ -47,6 +47,7 @@ public class ContractController {
                 .proposalUnlockId(contract.getProposalUnlockId())
                 .strategyDetail(contract.getStrategyDetail())
                 .unlockCost(contract.getUnlockCost())
+                .proposedBudget(contract.getProposedBudget())
                 .clientSigned(contract.isClientSigned())
                 .expertSigned(contract.isExpertSigned())
                 .status(contract.getStatus().name())
