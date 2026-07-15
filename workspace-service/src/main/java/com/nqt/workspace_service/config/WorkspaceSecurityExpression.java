@@ -1,8 +1,9 @@
-package com.nqt.workspace_service.config; // 🌟 Sửa lại tên package cho đúng với dự án của bạn
+package com.nqt.workspace_service.config;
 
 import com.nqt.workspace_service.entity.ProjectDetail;
+import com.nqt.workspace_service.entity.Workspace;
 import com.nqt.workspace_service.repository.ProjectDetailRepository;
-import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
+import com.nqt.workspace_service.repository.WorkspaceRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -18,101 +19,83 @@ import java.util.UUID;
 @Slf4j
 public class WorkspaceSecurityExpression {
 
-    WorkspaceMemberRepository memberRepository;
-    ProjectDetailRepository projectRepository; // Inject thêm repo project để check quyền sửa dự án
+    WorkspaceRepository workspaceRepository;
+    ProjectDetailRepository projectRepository;
 
     /**
-     * Kiểm tra xem User hiện tại đang đăng nhập có phải là THÀNH VIÊN hợp lệ của Workspace hay không.
-     * Sử dụng cho API lấy danh sách thành viên hoặc xem thông tin chung của Workspace.
+     * User hiện tại là thành viên của Workspace khi họ là Client hoặc Expert của Workspace đó.
      */
     public boolean isMemberOf(UUID workspaceId) {
-        String currentUserIdStr = getCurrentUserIdFromContext();
+        UUID currentUserId = getCurrentUserId();
+        if (currentUserId == null) return false;
 
-        if (currentUserIdStr == null) {
+        Workspace workspace = workspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace == null) {
+            log.warn("Workspace not found with ID: {}", workspaceId);
             return false;
         }
 
-        try {
-            UUID currentUserId = UUID.fromString(currentUserIdStr);
-
-            // Đối soát trong DB xem cặp (workspaceId, userId) này có tồn tại không
-            boolean isMember = memberRepository.findByWorkspaceIdAndUserId(workspaceId, currentUserId).isPresent();
-            if (!isMember) {
-                log.warn("Security Alert: User [{}] attempted to access Workspace [{}] without permission", currentUserId, workspaceId);
-            }
-            return isMember;
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid UUID format in Security Context: {}", currentUserIdStr);
-            return false;
+        boolean isMember = isMemberOfWorkspace(workspace, currentUserId);
+        if (!isMember) {
+            log.warn("Security Alert: User [{}] attempted to access Workspace [{}] without permission",
+                    currentUserId, workspaceId);
         }
+        return isMember;
     }
 
     /**
-     * Kiểm tra xem User hiện tại đang đăng nhập có quyền hạn đối với DỰ ÁN (Project) này không.
-     * Thỏa mãn khi User thuộc về Workspace đang chứa Dự án đó.
-     * Sử dụng cho các API updateStatus, updateProgress, updateProjectInfo.
+     * User có quyền với Project khi họ là thành viên (Client/Expert) của Workspace chứa Project đó.
      */
     public boolean isProjectOwner(UUID projectId) {
-        String currentUserIdStr = getCurrentUserIdFromContext();
+        UUID currentUserId = getCurrentUserId();
+        if (currentUserId == null) return false;
 
-        if (currentUserIdStr == null) {
+        ProjectDetail project = projectRepository.findById(projectId).orElse(null);
+        if (project == null) {
+            log.warn("Project not found with ID: {}", projectId);
             return false;
         }
 
-        try {
-            UUID currentUserId = UUID.fromString(currentUserIdStr);
-
-            // 1. Tìm thông tin dự án để xác định nó thuộc Workspace nào
-            ProjectDetail project = projectRepository.findById(projectId).orElse(null);
-            if (project == null) {
-                log.warn("Project not found with ID: {}", projectId);
-                return false;
-            }
-
-            // 2. Kiểm tra xem người dùng hiện tại có phải là thành viên của Workspace đó không
-            boolean isOwner = memberRepository.findByWorkspaceIdAndUserId(project.getWorkspace().getWorkspaceId(), currentUserId).isPresent();
-            if (!isOwner) {
-                log.warn("Security Alert: User [{}] attempted to modify Project [{}] in Workspace [{}] without permission",
-                        currentUserId, projectId, project.getWorkspace().getWorkspaceId());
-            }
-            return isOwner;
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid UUID format during project owner validation: {}", currentUserIdStr);
-            return false;
+        boolean isOwner = isMemberOfWorkspace(project.getWorkspace(), currentUserId);
+        if (!isOwner) {
+            log.warn("Security Alert: User [{}] attempted to modify Project [{}] in Workspace [{}] without permission",
+                    currentUserId, projectId, project.getWorkspace().getWorkspaceId());
         }
-    }
-
-    public boolean isProjectClient(UUID projectId) {
-        String currentUserIdStr = getCurrentUserIdFromContext();
-        if (currentUserIdStr == null) {
-            return false;
-        }
-
-        try {
-            UUID currentUserId = UUID.fromString(currentUserIdStr);
-
-            ProjectDetail project = projectRepository.findById(projectId).orElse(null);
-            if (project == null) {
-                log.warn("Project not found with ID: {}", projectId);
-                return false;
-            }
-
-            boolean isClient = project.getWorkspace().getClientId().equals(currentUserId);
-            if (!isClient) {
-                log.warn("Security Alert: User [{}] (not client) attempted to complete Project [{}] in Workspace [{}]",
-                        currentUserId, projectId, project.getWorkspace().getWorkspaceId());
-            }
-            return isClient;
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid UUID format during project client validation: {}", currentUserIdStr);
-            return false;
-        }
+        return isOwner;
     }
 
     /**
-     * Hàm Helper bóc tách nhanh chuỗi ID của người dùng đang đăng nhập từ SecurityContext
+     * User là Client của Project (dùng cho completeProject / giải ngân escrow).
      */
-    private String getCurrentUserIdFromContext() {
+    public boolean isProjectClient(UUID projectId) {
+        UUID currentUserId = getCurrentUserId();
+        if (currentUserId == null) return false;
+
+        ProjectDetail project = projectRepository.findById(projectId).orElse(null);
+        if (project == null) {
+            log.warn("Project not found with ID: {}", projectId);
+            return false;
+        }
+
+        boolean isClient = currentUserId.equals(project.getWorkspace().getClientId());
+        if (!isClient) {
+            log.warn("Security Alert: User [{}] (not client) attempted to complete Project [{}] in Workspace [{}]",
+                    currentUserId, projectId, project.getWorkspace().getWorkspaceId());
+        }
+        return isClient;
+    }
+
+    /**
+     * Logic chung: thành viên = Client hoặc Expert của Workspace.
+     */
+    private boolean isMemberOfWorkspace(Workspace workspace, UUID userId) {
+        return userId.equals(workspace.getClientId()) || userId.equals(workspace.getExpertId());
+    }
+
+    /**
+     * Lấy userId (UUID) từ SecurityContext, trả về null nếu chưa xác thực hoặc UUID sai định dạng.
+     */
+    private UUID getCurrentUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()
@@ -121,7 +104,11 @@ public class WorkspaceSecurityExpression {
             return null;
         }
 
-        // Trả về userId dạng chuỗi (Do bộ lọc GatewaySignatureFilter gán vào trường Principal)
-        return (String) authentication.getPrincipal();
+        try {
+            return UUID.fromString((String) authentication.getPrincipal());
+        } catch (IllegalArgumentException | ClassCastException e) {
+            log.error("Invalid UUID in Security Context: {}", authentication.getPrincipal());
+            return null;
+        }
     }
 }
