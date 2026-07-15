@@ -1,0 +1,55 @@
+server:
+  port: 8087
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: rate-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/rate
+    username: postgres
+    password: ${DB_PASSWORD:SWD392@server}
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    show-sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+grpc:
+  server:
+    port: 9097
+  client:
+    identity-service:
+      address: static://localhost:9091
+      negotiation-type: plaintext
+    workspace-service:
+      address: static://localhost:9090
+      negotiation-type: plaintext
+
+jwt:
+  signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="
+
+app:
+  security:
+    public-endpoints:
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/public/**"

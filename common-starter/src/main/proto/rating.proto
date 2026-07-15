@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com.rating.grpc;
+
+option java_multiple_files = true;
+option java_package = "com.rating.grpc";
+
+service RatingService {
+  rpc GetExpertRatingSummary(ExpertRatingRequest) returns (ExpertRatingSummary);
+}
+
+message ExpertRatingRequest {
+  string expert_id = 1;
+}
+
+message ExpertRatingSummary {
+  double average_score = 1;
+  int32 total_ratings = 2;
+}
