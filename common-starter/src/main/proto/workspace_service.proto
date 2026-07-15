@@ -10,6 +10,7 @@ import "google/protobuf/timestamp.proto";
 service WorkspaceService {
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
   rpc GetWorkspaceById(GetWorkspaceByIdRequest) returns (WorkspaceResponse);
+  rpc GetProjectById(GetProjectByIdRequest) returns (ProjectResponse);
 }
 
 message CreateWorkspaceRequest {
@@ -31,6 +32,19 @@ message GetWorkspaceByIdRequest {
   string workspace_id = 1;
 }
 
+message GetProjectByIdRequest {
+  string project_id = 1;
+}
+
+message ProjectResponse {
+  string project_id = 1;
+  string workspace_id = 2;
+  string client_id = 3;
+  string expert_id = 4;
+  string status = 5;             // ProjectState: IN_PROGRESS/UNDER_REVIEW/.../COMPLETED
+  float progress_percentage = 6;
+}
+
 message WorkspaceResponse {
   string workspace_id = 1;
   string job_id = 2;
@@ -38,3 +52,4 @@ message WorkspaceResponse {
   string expert_id = 4;
   string status = 5;
 }
+

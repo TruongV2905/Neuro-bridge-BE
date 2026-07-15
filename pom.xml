@@ -20,5 +20,6 @@
         <module>payment-service</module>
         <module>chat-service</module>
         <module>report-service</module>
+        <module>rate-service</module>
     </modules>
 </project>
