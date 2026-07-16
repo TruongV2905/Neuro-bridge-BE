@@ -15,4 +15,5 @@ public interface IProjectEscrow {
     ProjectEscrow findOrCreateByJobPost(UUID jobPostId, String clientCode, String expertCode);
     ProjectEscrow getEntity(UUID id);
     void markFunded(UUID escrowId);
+    ProjectEscrowResponse getByIdForUser(UUID id);
 }
