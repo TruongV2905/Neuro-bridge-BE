@@ -3,8 +3,11 @@ package com.nqt.jobPost_service.controller;
 
 import com.nqt.jobPost_service.dto.response.ContractResponse;
 import com.nqt.jobPost_service.entity.Contract;
+import com.nqt.jobPost_service.entity.ExpertApply;
+import com.nqt.jobPost_service.repository.ExpertApplyRepo;
 import com.nqt.jobPost_service.service.impl.IContractService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +22,7 @@ import java.util.UUID;
 public class ContractController {
 
     private final IContractService contractService;
+    private final ExpertApplyRepo expertApplyRepo;
 
     @GetMapping("/{contractId}")
     @PreAuthorize("isAuthenticated()")
@@ -41,13 +45,16 @@ public class ContractController {
     }
 
     private ContractResponse toResponse(Contract contract) {
+        ExpertApply expertApply = expertApplyRepo.findById(contract.getExpertApplyId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "ExpertApply không tồn tại: " + contract.getExpertApplyId()));
+
         return ContractResponse.builder()
                 .id(contract.getId())
                 .jobId(contract.getJobId())
-                .proposalUnlockId(contract.getProposalUnlockId())
                 .strategyDetail(contract.getStrategyDetail())
-                .unlockCost(contract.getUnlockCost())
                 .proposedBudget(contract.getProposedBudget())
+                .estimatedDays(expertApply.getEstimatedDays())
                 .clientSigned(contract.isClientSigned())
                 .expertSigned(contract.isExpertSigned())
                 .status(contract.getStatus().name())

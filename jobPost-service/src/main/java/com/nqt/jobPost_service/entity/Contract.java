@@ -31,6 +31,9 @@ public class Contract {
     UUID proposalUnlockId;
 
     @Column(nullable = false)
+    UUID expertApplyId;
+
+    @Column(nullable = false)
     String clientId;
 
     @Column(nullable = false)

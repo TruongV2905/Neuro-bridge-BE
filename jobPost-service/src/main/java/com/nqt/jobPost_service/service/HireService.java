@@ -196,6 +196,7 @@ public class HireService implements IHireService {
         Contract contract = contractService.createContract(
                 jobPost.getId(),
                 proposalUnlockId,
+                expertApply.getId(),
                 jobPost.getCreatorCode(),
                 expertApply.getExpertCode(),
                 strategyDetail,

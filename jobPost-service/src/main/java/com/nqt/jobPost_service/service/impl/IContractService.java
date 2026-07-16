@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface IContractService {
-    Contract createContract(UUID jobId, UUID proposalUnlockId,
+    Contract createContract(UUID jobId, UUID proposalUnlockId, UUID expertApplyId,
                             String clientId, String expertId,
                             String strategyDetail, BigDecimal unlockCost,
                             BigDecimal proposedBudget,
