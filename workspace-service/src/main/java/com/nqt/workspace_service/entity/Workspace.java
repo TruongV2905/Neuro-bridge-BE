@@ -47,6 +47,9 @@ public class Workspace {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(name = "strategy_document", columnDefinition = "TEXT")
+    private String strategyDocument;
+
     // --- Mối quan hệ Composition (Toàn thể - Bộ phận) ---
 
     // 1-1 với ProjectDetail
