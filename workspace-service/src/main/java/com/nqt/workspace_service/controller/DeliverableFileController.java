@@ -48,9 +48,9 @@ public class DeliverableFileController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Đăng tải/Nộp tập tin sản phẩm mới vào gói bàn giao")
     public ResponseEntity<DeliverableFileRespond> addFile(
-            @Valid @RequestBody AddFileRequest req,
-            @AuthenticationPrincipal Jwt jwt) {
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
+            @Valid @RequestBody AddFileRequest req) {
+        UUID currentUserId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getName());
         DeliverableFileRespond respond = fileService.addFile(req, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(respond);
     }
@@ -60,9 +60,9 @@ public class DeliverableFileController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Chỉnh sửa thông tin tập tin sản phẩm đã nộp")
     public ResponseEntity<DeliverableFileRespond> updateFile(
-            @Valid @RequestBody UpdateFileRequest req,
-            @AuthenticationPrincipal Jwt jwt) {
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
+            @Valid @RequestBody UpdateFileRequest req) {
+        UUID currentUserId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getName());
         DeliverableFileRespond respond = fileService.updateFile(req, currentUserId);
         return ResponseEntity.ok(respond);
     }
@@ -71,10 +71,9 @@ public class DeliverableFileController {
     @DeleteMapping("/{fileId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Gỡ bỏ tập tin sản phẩm khỏi gói bàn giao (Soft Delete)")
-    public ResponseEntity<Boolean> deleteFile(
-            @PathVariable UUID fileId,
-            @AuthenticationPrincipal Jwt jwt) {
-        UUID currentUserId = UUID.fromString(jwt.getClaim("sub").toString());
+    public ResponseEntity<Boolean> deleteFile(@PathVariable UUID fileId) {
+        UUID currentUserId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getName());
         boolean isDeleted = fileService.deleteFile(fileId, currentUserId);
         return ResponseEntity.ok(isDeleted);
     }

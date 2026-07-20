@@ -342,6 +342,8 @@ public class DeliverableFileService implements IDeliverableFileService {
                 file.getFileUrl(),
                 file.getFileSize(),
                 file.getFileType(),
+                file.getFileStatus(),
+                file.getFeedback(),
                 file.getUploadedAt(),
                 file.getIsDelete()
         );
