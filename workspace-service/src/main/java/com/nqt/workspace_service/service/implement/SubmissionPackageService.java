@@ -469,6 +469,8 @@ public class SubmissionPackageService implements ISubmissionPackageService {
                         file.getFileUrl(),
                         file.getFileSize(),
                         file.getFileType(),
+                        file.getFileStatus(),
+                        file.getFeedback(),
                         file.getUploadedAt(),
                         file.getIsDelete()
                 )).collect(Collectors.toList());
