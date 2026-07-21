@@ -147,14 +147,14 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatSessionResponse> getMyChatSessions() {
+    public List<ChatSessionResponse> getMyChatSessions(ChatType type) {
         String userCode = identityServiceClient.getCurrentUser().getCode();
         if (userCode == null || userCode.isBlank()) {
             throw new RuntimeException("Cannot resolve current user");
         }
 
         List<ChatSession> sessions =
-                chatSessionRepository.findByParticipantCodesContaining(userCode);
+                chatSessionRepository.findByParticipantCodesContainingAndType(userCode,type);
 
         sessions.sort(Comparator.comparing(ChatSession::getId,
                 Comparator.nullsLast(Comparator.reverseOrder())));
@@ -163,6 +163,11 @@ public class ChatService {
                 .map(this::toSessionResponse)
                 .toList();
     }
+
+
+
+
+
 
     @Transactional
     public ChatSessionResponse addParticipant(UUID chatSessionId, String userCode) {

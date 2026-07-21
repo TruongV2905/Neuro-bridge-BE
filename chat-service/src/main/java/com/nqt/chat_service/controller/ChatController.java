@@ -1,5 +1,6 @@
 package com.nqt.chat_service.controller;
 
+import com.nqt.chat_service.constant.ChatType;
 import com.nqt.chat_service.dto.request.CreateChatSessionRequest;
 import com.nqt.chat_service.dto.request.SendMessageRequest;
 import com.nqt.chat_service.dto.response.ChatSessionResponse;
@@ -53,14 +54,25 @@ public class ChatController {
     /**
      * Lấy tất cả phòng chat của current user.
      */
-    @GetMapping("/sessions/mine")
+    @GetMapping("/sessions/mine/direct")
     public ResponseEntity<APIResponse<List<ChatSessionResponse>>> getMySessions() {
         return ResponseEntity.ok(APIResponse.response(
                 200,
                 "Get my chat sessions successfully",
-                chatService.getMyChatSessions()
+                chatService.getMyChatSessions(ChatType.DIRECT)
         ));
     }
+
+    @GetMapping("/sessions/mine/project")
+    public ResponseEntity<APIResponse<List<ChatSessionResponse>>> getMySessionsInProject() {
+        return ResponseEntity.ok(APIResponse.response(
+                200,
+                "Get my chat sessions successfully",
+                chatService.getMyChatSessions(ChatType.PROJECT)
+        ));
+    }
+
+
 
     @PostMapping("/sessions/{id}/participants/{userCode}")
     public ResponseEntity<APIResponse<ChatSessionResponse>> addParticipant(

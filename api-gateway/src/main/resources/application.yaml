@@ -60,4 +60,5 @@ app:
       - "/notification/api/notifications/health"
       - "/identity/skill/user"
       - "/notification/ws/**"
+      - "/chat/ws/**"
   api-prefix: ${API_PREFIX:/api/}

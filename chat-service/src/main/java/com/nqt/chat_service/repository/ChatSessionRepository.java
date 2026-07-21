@@ -17,5 +17,5 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, UUID> 
      * Tìm các phòng chat mà userCode là participant.
      * {@code participantCodes} là @ElementCollection trên entity.
      */
-    List<ChatSession> findByParticipantCodesContaining(String userCode);
+    List<ChatSession> findByParticipantCodesContainingAndType(String userCode, ChatType type);
 }

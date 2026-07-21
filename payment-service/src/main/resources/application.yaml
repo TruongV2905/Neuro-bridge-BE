@@ -67,4 +67,4 @@ vnpay:
   tmn-code: "FCSU007M"
   hash-secret: "YW0OYS5HINCFVVCQM3P75IUOQQO5GO77"
   pay-url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
-  return-url: "http://localhost:5173/payment" #return-url là khi thanh toán  xong thì sẽ truy cập vào cái đường link vd: http://localhost:5173/oayment
+  return-url: "http://localhost:3000/payment" #return-url là khi thanh toán  xong thì sẽ truy cập vào cái đường link vd: http://localhost:5173/oayment
