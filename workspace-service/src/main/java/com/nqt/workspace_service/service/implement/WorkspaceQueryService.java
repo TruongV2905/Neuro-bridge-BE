@@ -1,11 +1,10 @@
 package com.nqt.workspace_service.service.implement;
+
 import com.nqt.workspace_service.dto.response.PagedResponse;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
 import com.nqt.workspace_service.dto.response.WorkspaceSummaryResponse;
 import com.nqt.workspace_service.entity.Workspace;
-import com.nqt.workspace_service.entity.WorkspaceMember;
 import com.nqt.workspace_service.grpc.UserClientService;
-import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
 import com.nqt.workspace_service.repository.WorkspaceRepository;
 import com.nqt.workspace_service.service.interfaces.IWorkspaceQueryService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +26,6 @@ import java.util.stream.Collectors;
 public class WorkspaceQueryService implements IWorkspaceQueryService {
 
     private final WorkspaceRepository workspaceRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final UserClientService userClientService;
 
     @Override
@@ -36,7 +34,6 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy không gian làm việc với ID: " + workspaceId));
 
-        // Sửa bug: điều kiện cũ check clientId 2 lần, thiếu expertId
         if (!isAdmin && !workspace.getClientId().equals(currentUserId)
                 && !workspace.getExpertId().equals(currentUserId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem thông tin phòng làm việc này!");
@@ -67,7 +64,6 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
 
     private WorkspaceSummaryResponse mapToSummary(Workspace w, UUID currentUserId) {
         boolean isClient = w.getClientId().equals(currentUserId);
-        // Sửa bug: lấy đúng partnerId (nếu là client thì partner là expert và ngược lại)
         UUID partnerId = isClient ? w.getExpertId() : w.getClientId();
 
         String partnerName = "Unknown";
@@ -97,25 +93,8 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
     }
 
     private WorkspaceResponse convertToResponseDto(Workspace workspace) {
-        // Fetch member từ DB theo userId
-        WorkspaceMember client = memberRepository.findByUserId(workspace.getClientId()).orElse(null);
-        WorkspaceMember expert = memberRepository.findByUserId(workspace.getExpertId()).orElse(null);
-
-        // Enrich từ gRPC
-        try {
-            var clientInfo = userClientService.getUserInfo(workspace.getClientId().toString());
-            if (clientInfo != null && client != null) {
-                client.setName(clientInfo.getFullName());
-                client.setAvatarUrl(clientInfo.getAvatarUrl());
-            }
-            var expertInfo = userClientService.getUserInfo(workspace.getExpertId().toString());
-            if (expertInfo != null && expert != null) {
-                expert.setName(expertInfo.getFullName());
-                expert.setAvatarUrl(expertInfo.getAvatarUrl());
-            }
-        } catch (Exception e) {
-            log.warn("⚠️ Enrich member thất bại: {}", e.getMessage());
-        }
+        WorkspaceResponse.MemberInfo client = resolveMemberInfo(workspace.getClientId());
+        WorkspaceResponse.MemberInfo expert = resolveMemberInfo(workspace.getExpertId());
 
         return WorkspaceResponse.builder()
                 .workspaceId(workspace.getWorkspaceId())
@@ -123,21 +102,32 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
                 .escrowId(workspace.getEscrowId())
                 .status(workspace.getStatus())
                 .createdAt(workspace.getCreatedAt())
-                .client(WorkspaceResponse.MemberInfo.builder()
-                        .userId(workspace.getClientId())
-                        .name(client != null ? client.getName() : "Unknown")
-                        .avatarUrl(client != null ? client.getAvatarUrl() : null)
-                        .build())
-                .expert(WorkspaceResponse.MemberInfo.builder()
-                        .userId(workspace.getExpertId())  // Sửa bug: dùng expertId thay vì clientId
-                        .name(expert != null ? expert.getName() : "Unknown")
-                        .avatarUrl(expert != null ? expert.getAvatarUrl() : null)
-                        .build())
+                .client(client)
+                .expert(expert)
                 .projectName(workspace.getProjectDetail().getProjectName())
                 .deadline(workspace.getProjectDetail().getDeadline())
                 .startDate(workspace.getProjectDetail().getStartDate())
                 .projectStatus(workspace.getProjectDetail().getStatus().name())
                 .progressPercentage(workspace.getProjectDetail().getProgressPercentage())
+                .build();
+    }
+
+    private WorkspaceResponse.MemberInfo resolveMemberInfo(UUID userId) {
+        String name = "Unknown";
+        String avatar = null;
+        try {
+            var info = userClientService.getUserInfo(userId.toString());
+            if (info != null) {
+                name = info.getFullName();
+                avatar = info.getAvatarUrl();
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Enrich member {} thất bại: {}", userId, e.getMessage());
+        }
+        return WorkspaceResponse.MemberInfo.builder()
+                .userId(userId)
+                .name(name)
+                .avatarUrl(avatar)
                 .build();
     }
 }

@@ -4,6 +4,7 @@ import com.identity.grpc.UserResponse;
 import com.nqt.common_starter.dto.response.PageResponse;
 import com.nqt.common_starter.exception.GlobalException;
 import com.nqt.payment_service.constant.PaymentReferenceType;
+import com.nqt.payment_service.constant.TransactionStatus;
 import com.nqt.payment_service.constant.TransactionType;
 import com.nqt.payment_service.constant.WalletStatus;
 import com.nqt.payment_service.dto.request.PaymentTransactionRequest;
@@ -167,6 +168,29 @@ public class UserWalletService implements IUserWallet {
     public void depositSuccessfully(BigDecimal depositAmount, UUID transactionId) {
         UserResponse user = identityServiceClient.getCurrentUser();
         String userCode = user.getCode();
+        PaymentTransactionResponse transaction = paymentTransactionService.getById(transactionId);
+
+        if (transaction.getStatus() == TransactionStatus.SUCCESS) {
+            return;
+        }
+
+        if (transaction.getStatus() != TransactionStatus.PENDING) {
+            throw new GlobalException("Cannot complete deposit transaction with status: " + transaction.getStatus());
+        }
+
+        if (transaction.getAmount() == null || transaction.getAmount().compareTo(depositAmount) != 0) {
+            throw new GlobalException("Deposit amount does not match the payment transaction");
+        }
+
+        if (transaction.getType() != TransactionType.WALLET_DEPOSIT
+                || transaction.getReferenceType() != PaymentReferenceType.DEPOSIT_REQUEST) {
+            throw new GlobalException("Payment transaction is not a wallet deposit request");
+        }
+
+        if (!userCode.equals(transaction.getToUserCode())) {
+            throw new GlobalException("Payment transaction does not belong to current user");
+        }
+
         paymentTransactionService.payment(
                 null,
                 userCode,

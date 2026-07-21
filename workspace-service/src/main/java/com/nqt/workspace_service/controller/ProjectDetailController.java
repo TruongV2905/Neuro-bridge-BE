@@ -3,6 +3,7 @@ import com.nqt.common_starter.dto.response.APIResponse;
 import com.nqt.workspace_service.dto.request.*;
 import com.nqt.workspace_service.dto.response.ProjectDetailRespond;
 import com.nqt.workspace_service.service.implement.ProjectDetailService;
+import com.nqt.workspace_service.service.interfaces.IProjectDetailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,7 +22,7 @@ import java.util.UUID;
 @Tag(name = "Project Detail Controller", description = "Quản lý thông tin chi tiết, trạng thái và tiến độ của dự án trong Workspace")
 public class ProjectDetailController {
 
-    ProjectDetailService projectService;
+    IProjectDetailService projectService;
 
     @GetMapping("/workspace/{workspaceId}")
     @Operation(summary = "Lấy thông tin chi tiết dự án theo Workspace ID")
@@ -60,6 +61,16 @@ public class ProjectDetailController {
                 HttpStatus.OK.value(),
                 "Update project information successfully",
                 projectService.updateProjectInfo(req)
+        ));
+    }
+
+    @PostMapping("/{projectId}/complete")
+    @Operation(summary = "Kết thúc dự án: cập nhật tiến độ 100%, giải ngân tiền cho Expert và gửi thông báo")
+    public ResponseEntity<APIResponse<ProjectDetailRespond>> completeProject(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(APIResponse.response(
+                HttpStatus.OK.value(),
+                "Project completed and payment released successfully",
+                projectService.completeProject(projectId)
         ));
     }
 }

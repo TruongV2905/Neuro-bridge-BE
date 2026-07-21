@@ -14,9 +14,9 @@ import java.util.UUID;
 public class ContractResponse {
     UUID id;
     UUID jobId;
-    UUID proposalUnlockId;
     String strategyDetail;
-    BigDecimal unlockCost;
+    BigDecimal proposedBudget;
+    Integer estimatedDays;
     boolean clientSigned;
     boolean expertSigned;
     String status;

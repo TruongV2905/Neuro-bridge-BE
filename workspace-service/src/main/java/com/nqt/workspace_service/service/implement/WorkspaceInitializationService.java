@@ -1,16 +1,14 @@
 package com.nqt.workspace_service.service.implement;
+
 import com.nqt.common_starter.dto.event.NotificationEvent;
 import com.nqt.common_starter.kafka.NotificationEventPublisher;
 import com.nqt.workspace_service.dto.request.CreateWorkspaceRequest;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
 import com.nqt.workspace_service.entity.ProjectDetail;
 import com.nqt.workspace_service.entity.Workspace;
-import com.nqt.workspace_service.entity.WorkspaceMember;
 import com.nqt.workspace_service.constant.ProjectState;
-import com.nqt.workspace_service.constant.WorkspaceRole;
 import com.nqt.workspace_service.constant.WorkspaceStatus;
 import com.nqt.workspace_service.grpc.UserClientService;
-import com.nqt.workspace_service.repository.WorkspaceMemberRepository;
 import com.nqt.workspace_service.repository.WorkspaceRepository;
 import com.nqt.workspace_service.service.interfaces.IWorkspaceInitializationService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +25,6 @@ import java.util.UUID;
 public class WorkspaceInitializationService implements IWorkspaceInitializationService {
 
     private final WorkspaceRepository workspaceRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final UserClientService userClientService;
     private final NotificationEventPublisher eventPublisher;
 
@@ -58,12 +55,6 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
         workspace.setProjectDetail(projectDetail);
         Workspace savedWorkspace = workspaceRepository.save(workspace);
 
-        // Tạo member SAU khi có workspaceId
-        WorkspaceMember client = getOrCreateMember(
-                request.getClientId(), WorkspaceRole.CLIENT, savedWorkspace.getWorkspaceId());
-        WorkspaceMember expert = getOrCreateMember(
-                request.getExpertId(), WorkspaceRole.EXPERT, savedWorkspace.getWorkspaceId());
-
         eventPublisher.publish(
                 NotificationEventPublisher.WORKSPACE_INVITED,
                 NotificationEvent.builder()
@@ -86,55 +77,49 @@ public class WorkspaceInitializationService implements IWorkspaceInitializationS
                         .build()
         );
 
-        return convertToResponseDto(savedWorkspace, client, expert);
-    }
-
-    private WorkspaceMember getOrCreateMember(UUID userId, WorkspaceRole role, UUID workspaceId) {
-        return memberRepository.findByUserId(userId).orElseGet(() -> {
-            String name = "User " + userId.toString().substring(0, 5);
-            String avatar = null;
-            try {
-                var userInfo = userClientService.getUserInfo(userId.toString());
-                if (userInfo != null) {
-                    name = userInfo.getFullName();
-                    avatar = userInfo.getAvatarUrl();
-                }
-            } catch (Exception e) {
-                log.warn("⚠️ Không thể lấy thông tin user {} từ IdentityService. Dùng giá trị mặc định.", userId);
-            }
-            return memberRepository.save(WorkspaceMember.builder()
-                    .userId(userId)
-                    .name(name)
-                    .role(role)
-                    .avatarUrl(avatar)
-                    .workspaceId(workspaceId) // gán workspaceId ở đây
-                    .build());
-        });
+        return convertToResponseDto(savedWorkspace);
     }
 
     /**
-     * Hàm phụ trợ: Chuyển đổi dữ liệu từ Entity sang cấu trúc phẳng DTO
+     * Lấy thông tin hiển thị (name, avatar) của 1 user từ IdentityService qua gRPC.
+     * Không còn persist vào WorkspaceMember nữa — gọi trực tiếp lúc cần build response.
      */
-    @Override
-    public WorkspaceResponse convertToResponseDto(Workspace workspace,
-                                                  WorkspaceMember client,
-                                                  WorkspaceMember expert) {
+    private WorkspaceResponse.MemberInfo resolveMemberInfo(UUID userId) {
+        String name = "User " + userId.toString().substring(0, 5);
+        String avatar = null;
+        try {
+            var userInfo = userClientService.getUserInfo(userId.toString());
+            if (userInfo != null) {
+                name = userInfo.getFullName();
+                avatar = userInfo.getAvatarUrl();
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Không thể lấy thông tin user {} từ IdentityService. Dùng giá trị mặc định.", userId);
+        }
+        return WorkspaceResponse.MemberInfo.builder()
+                .userId(userId)
+                .name(name)
+                .avatarUrl(avatar)
+                .build();
+    }
+
+    /**
+     * Hàm phụ trợ: Chuyển đổi dữ liệu từ Entity sang cấu trúc phẳng DTO.
+     * Không nhận WorkspaceMember nữa — dùng clientId/expertId có sẵn trên Workspace
+     * rồi resolve name/avatar on-the-fly qua gRPC.
+     */
+    private WorkspaceResponse convertToResponseDto(Workspace workspace) {
+        WorkspaceResponse.MemberInfo client = resolveMemberInfo(workspace.getClientId());
+        WorkspaceResponse.MemberInfo expert = resolveMemberInfo(workspace.getExpertId());
+
         return WorkspaceResponse.builder()
                 .workspaceId(workspace.getWorkspaceId())
                 .jobId(workspace.getJobId())
                 .escrowId(workspace.getEscrowId())
                 .status(workspace.getStatus())
                 .createdAt(workspace.getCreatedAt())
-                .client(WorkspaceResponse.MemberInfo.builder()
-                        .userId(client.getUserId())
-                        .name(client.getName())
-                        .avatarUrl(client.getAvatarUrl())
-                        .build())
-                .expert(WorkspaceResponse.MemberInfo.builder()
-                        .userId(expert.getUserId())
-                        .name(expert.getName())
-                        .avatarUrl(expert.getAvatarUrl())
-                        .build())
+                .client(client)
+                .expert(expert)
                 .projectName(workspace.getProjectDetail().getProjectName())
                 .deadline(workspace.getProjectDetail().getDeadline())
                 .startDate(workspace.getProjectDetail().getStartDate())

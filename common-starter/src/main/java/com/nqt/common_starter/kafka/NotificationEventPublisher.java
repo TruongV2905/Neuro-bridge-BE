@@ -26,6 +26,7 @@ public class NotificationEventPublisher {
     public static final String JOBPOST_APPLIED = "neural-bridge.jobpost.applied";
     public static final String CONTRACT_SIGN_REQUIRED = "neural-bridge.contract.sign-required";
     public static final String CONTRACT_FULLY_SIGNED  = "neural-bridge.contract.fully-signed";
+    public static final String PROJECT_COMPLETED_PAYMENT_RELEASED = "neural-bridge.project.completed-payment-released";
 
     public void publish(String topic, NotificationEvent event) {
         event.setOccurredAt(LocalDateTime.now());

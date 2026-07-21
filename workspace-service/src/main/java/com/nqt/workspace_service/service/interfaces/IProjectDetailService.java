@@ -12,4 +12,5 @@ public interface IProjectDetailService {
     ProjectDetailRespond updateStatus(UpdateStateRequest req);
     ProjectDetailRespond updateProgress(UpdateProgressRequest req);
     ProjectDetailRespond updateProjectInfo(UpdateProjectRequest req);
+    ProjectDetailRespond completeProject(UUID projectId);
 }

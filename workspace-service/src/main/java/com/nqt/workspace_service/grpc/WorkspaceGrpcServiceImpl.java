@@ -2,12 +2,14 @@ package com.nqt.workspace_service.grpc;
 
 import com.google.protobuf.Timestamp;
 import com.nqt.workspace_service.dto.response.WorkspaceResponse;
+import com.nqt.workspace_service.entity.ProjectDetail;
 import com.nqt.workspace_service.entity.Workspace;
-import com.nqt.workspace_service.repository.WorkspaceRepository;
+import com.nqt.workspace_service.repository.ProjectDetailRepository;
 import com.nqt.workspace_service.service.interfaces.IWorkspaceInitializationService;
 import com.workspace.grpc.*;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
@@ -24,7 +26,8 @@ public class WorkspaceGrpcServiceImpl extends WorkspaceServiceGrpc.WorkspaceServ
 
     private final IWorkspaceInitializationService workspaceInitializationService;
     private final UserClientService userClientService;
-    private final WorkspaceRepository workspaceRepository;
+    private final com.nqt.workspace_service.repository.WorkspaceRepository workspaceRepository;
+    private final ProjectDetailRepository projectDetailRepository;
 
     @Override
     public void createWorkspace(CreateWorkspaceRequest request,
@@ -112,6 +115,26 @@ public class WorkspaceGrpcServiceImpl extends WorkspaceServiceGrpc.WorkspaceServ
                 .build();
 
         responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getProjectById(GetProjectByIdRequest request, StreamObserver<ProjectResponse> responseObserver) {
+        ProjectDetail project = projectDetailRepository.findById(UUID.fromString(request.getProjectId()))
+                .orElseThrow(() -> new EntityNotFoundException("Project không tồn tại"));
+
+        Workspace workspace = project.getWorkspace();
+
+        responseObserver.onNext(
+                ProjectResponse.newBuilder()
+                        .setProjectId(project.getProjectId().toString())
+                        .setWorkspaceId(workspace.getWorkspaceId().toString())
+                        .setClientId(workspace.getClientId().toString())
+                        .setExpertId(workspace.getExpertId().toString())
+                        .setStatus(project.getStatus().name())
+                        .setProgressPercentage(project.getProgressPercentage())
+                        .build()
+        );
         responseObserver.onCompleted();
     }
 

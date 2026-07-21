@@ -7,6 +7,7 @@ option java_package = "com.payment.grpc";
 
 service PaymentService {
   rpc PayProjectEscrow (PayProjectEscrowRequest) returns (PayProjectEscrowResponse);
+  rpc ReleaseEscrow (ReleaseEscrowRequest) returns (ReleaseEscrowResponse);
 }
 
 message PayProjectEscrowRequest {
@@ -22,4 +23,14 @@ message PayProjectEscrowResponse {
   string escrowId = 3;
   string message = 4;
   string shortfallAmount = 5; // chỉ có giá trị khi status = PENDING
+}
+
+message ReleaseEscrowRequest {
+  string escrowId = 1;
+}
+
+message ReleaseEscrowResponse {
+  bool success = 1;
+  string message = 2;
+  string transactionId = 3;
 }

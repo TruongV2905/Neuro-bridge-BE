@@ -18,14 +18,16 @@ import com.nqt.jobPost_service.httpclient.IdentityServiceClient;
 import com.nqt.jobPost_service.mapper.ExpertApplyMapper;
 import com.nqt.jobPost_service.mapper.ProposalMapper;
 import com.nqt.jobPost_service.mapper.ProposalUnlockMapper;
+import com.nqt.jobPost_service.repository.ExpertApplyRepo;
 import com.nqt.jobPost_service.repository.JobPostRepo;
 import com.nqt.jobPost_service.service.impl.IApplyJobPost;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +48,7 @@ public class ApplyJobPostService implements IApplyJobPost {
     ProposalUnlockMapper proposalUnlockMapper;
     IdentityServiceClient identityServiceClient;   // MỚI
     NotificationEventPublisher eventPublisher;
+    ExpertApplyRepo expertApplyRepo;
 
 
     @Override
@@ -133,6 +136,15 @@ public class ApplyJobPostService implements IApplyJobPost {
         return expertApplies.stream()
                 .map(this::toApplyJobPostResponse)
                 .toList();
+    }
+
+    @Override
+    public Page<ApplyJobPostResponse> getMyApplies(Pageable pageable) {
+        UserResponse currentUser = identityServiceClient.getCurrentUser();
+        String expertCode = currentUser.getCode();
+
+        return expertApplyRepo.findByExpertCode(expertCode, pageable)
+                .map(this::toApplyJobPostResponse);
     }
 
     private ApplyJobPostResponse toApplyJobPostResponse(ExpertApply expertApply) {

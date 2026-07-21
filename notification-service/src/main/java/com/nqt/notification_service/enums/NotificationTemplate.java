@@ -56,6 +56,12 @@ public enum NotificationTemplate {
             e -> String.format("%s đã ứng tuyển vào công việc của bạn", e.getSenderName()),
             e -> String.format("/job-posts/%s/applies", e.getResourceId())
     ),
+    PROJECT_COMPLETED_PAYMENT_RELEASED(
+            "Dự án đã hoàn tất",
+            e -> String.format("Dự án \"%s\" đã hoàn tất. Số tiền dự án đã được chuyển vào ví của bạn.",
+                    e.getSenderName()),
+            e -> String.format("/workspaces/%s/projects/%s", e.getWorkspaceId(), e.getResourceId())
+    ),
     UNKNOWN(
             "Thông báo mới",
             e -> "Có sự kiện mới trong hệ thống",

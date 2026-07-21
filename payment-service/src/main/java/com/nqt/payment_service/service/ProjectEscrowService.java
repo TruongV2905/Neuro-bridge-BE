@@ -208,6 +208,25 @@ public class ProjectEscrowService implements IProjectEscrow {
         projectEscrowRepo.save(escrow);
     }
 
+    @Override
+    public ProjectEscrowResponse getByIdForUser(UUID id) {
+        ProjectEscrow escrow = getEntity(id);
+
+        String currentUserCode = identityServiceClient.getCurrentUser().getCode();
+
+        boolean isClient = currentUserCode.equals(escrow.getClientCode());
+        boolean isExpert = currentUserCode.equals(escrow.getExpertCode());
+
+        if (!isClient && !isExpert) {
+            throw new GlobalException(
+                    ErrorCode.UNAUTHORIZED.getCode(),
+                    "You are not a party of this escrow"
+            );
+        }
+
+        return projectEscrowMapper.toResponse(escrow);
+    }
+
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------

@@ -32,9 +32,10 @@ public class ContractService implements IContractService {
 
     @Override
     @Transactional
-    public Contract createContract(UUID jobId, UUID proposalUnlockId,
+    public Contract createContract(UUID jobId, UUID proposalUnlockId, UUID expertApplyId,
                                    String clientId, String expertId,
                                    String strategyDetail, BigDecimal unlockCost,
+                                   BigDecimal proposedBudget,
                                    String projectName, LocalDateTime deadline) {
 
         // Chỉ check trùng khi có proposalUnlockId — apply không qua proposal thì bỏ qua
@@ -50,10 +51,12 @@ public class ContractService implements IContractService {
         Contract contract = Contract.builder()
                 .jobId(jobId)
                 .proposalUnlockId(proposalUnlockId)
+                .expertApplyId(expertApplyId)
                 .clientId(clientId)
                 .expertId(expertId)
                 .strategyDetail(strategyDetail)
                 .unlockCost(unlockCost)
+                .proposedBudget(proposedBudget)
                 .projectName(projectName)
                 .deadline(deadline)
                 .status(ContractStatus.PENDING)
@@ -91,7 +94,6 @@ public class ContractService implements IContractService {
             );
         }
 
-        // Chặn ký lại nếu đã ký rồi — tránh spam noti
         if (isClient && contract.isClientSigned()) {
             throw new GlobalException(
                     ErrorCode.INVALID_CODE.getCode(),
@@ -137,7 +139,7 @@ public class ContractService implements IContractService {
                     NotificationEvent.builder()
                             .eventType("CONTRACT_FULLY_SIGNED")
                             .domain("contract")
-                            .recipientUserId(UUID.fromString(clientInfo.getId())) // client là người thanh toán
+                            .recipientUserId(UUID.fromString(clientInfo.getId()))
                             .senderName(expertInfo.getFullName())
                             .resourceId(contract.getId())
                             .occurredAt(LocalDateTime.now())
@@ -181,7 +183,6 @@ public class ContractService implements IContractService {
                             .build()
             );
         } catch (Exception e) {
-            // Không rollback việc ký hợp đồng nếu bắn noti lỗi — chỉ log lại
             log.error("Failed to send CONTRACT_SIGN_REQUIRED notification for contract {}: {}",
                     contract.getId(), e.getMessage());
         }

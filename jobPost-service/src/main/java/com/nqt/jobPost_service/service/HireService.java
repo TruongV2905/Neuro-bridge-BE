@@ -117,7 +117,7 @@ public class HireService implements IHireService {
                 .setJobPostId(jobPost.getId().toString())
                 .setClientCode(jobPost.getCreatorCode())
                 .setExpertCode(expertApply.getExpertCode())
-                .setAmount(contract.getUnlockCost().toPlainString())
+                .setAmount(contract.getProposedBudget().toPlainString())
                 .build();
 
         com.payment.grpc.PayProjectEscrowResponse response;
@@ -191,13 +191,17 @@ public class HireService implements IHireService {
                 ? proposalUnlock.getUnlockCost()
                 : expertApply.getProposedBudget();
 
+        BigDecimal proposedBudget = expertApply.getProposedBudget();
+
         Contract contract = contractService.createContract(
                 jobPost.getId(),
                 proposalUnlockId,
+                expertApply.getId(),
                 jobPost.getCreatorCode(),
                 expertApply.getExpertCode(),
                 strategyDetail,
                 unlockCost,
+                proposedBudget,
                 jobPost.getTitle(),
                 deadline
         );
