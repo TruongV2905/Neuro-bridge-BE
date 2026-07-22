@@ -19,11 +19,11 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RefreshToken  implements Serializable {
     @Id
-    String token;
+    String token;//
 
-    String UserId;
-    Instant issuedAt;
-    boolean isRevoked;
+    String UserId;//
+    Instant issuedAt;//
+    boolean isRevoked;//
     @TimeToLive
     Long ttl;
 }

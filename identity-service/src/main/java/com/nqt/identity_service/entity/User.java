@@ -33,45 +33,45 @@ import java.util.*;
 public class User implements UserDetails {
     @Id
     @UuidGenerator
-    UUID id;
+    UUID id;//
 
     @Column(unique = true, nullable = false, updatable = false)
-    String code;
+    String code;//
 
-    String fullName;
+    String fullName; //
 
 
 
     @Enumerated(EnumType.STRING)
-    Gender gender;
+    Gender gender; //
 
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    UserStatus status = UserStatus.ACTIVE;
+    UserStatus status = UserStatus.ACTIVE; //
 
-    String address;
+    String address;//
 
-    LocalDate dateOfBirth;
+    LocalDate dateOfBirth;//
 
     @Column(columnDefinition = "TEXT")
-    String avatarUrl;
+    String avatarUrl;//
 
     @Enumerated(EnumType.STRING)
     @EnumValidator(enumClass = Role.class, message = "INVALID_ENUM")
-    Role role;
+    Role role;//
 
     @Column(unique = true)
-    String phone;
+    String phone;//
 
     @Column(unique = true)
-    String email;
+    String email; //
 
-    String password;
+    String password;//
 
     @Builder.Default
     @Column(updatable = false)
-    LocalDateTime createdAt = LocalDateTime.now();
+    LocalDateTime createdAt = LocalDateTime.now();//
 
 
     //-------------------------------------------------------------------

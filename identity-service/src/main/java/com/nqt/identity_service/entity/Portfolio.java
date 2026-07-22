@@ -20,28 +20,28 @@ public class Portfolio {
     @Id
     @UuidGenerator
     @Column(name = "portfolio_id")
-    UUID id;
+    UUID id;//
 
     @Column(nullable = false)
-    String title;
+    String title;//
 
     @Column(columnDefinition = "TEXT")
-    String description;
+    String description;//
 
-    String technologies;
+    String technologies;//
 
-    LocalDateTime completedDate;
+    LocalDateTime completedDate;//
 
     @CreationTimestamp
     @Column(updatable = false)
-    LocalDateTime createdAt;
+    LocalDateTime createdAt;//
 
-    String roleInProject;
+    String roleInProject;//
 
-    boolean isDeleted;
+    boolean isDeleted;//
 
     @Column(columnDefinition = "TEXT")
-    String projectUrl;
+    String projectUrl;//
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expert_profile_id")
