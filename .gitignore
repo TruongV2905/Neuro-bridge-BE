@@ -14,3 +14,8 @@ target/
 .DS_Store
 
 .env
+
+# .NET build
+bin/
+obj/
+*.user

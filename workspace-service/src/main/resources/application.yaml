@@ -7,10 +7,9 @@ spring:
   application:
     name: workspace-service
   datasource:
-#    url: jdbc:postgresql://${DB_HOST:localhost}:5432/workspace
-    url: jdbc:postgresql://103.180.138.143:5432/workspace
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/workspace
     username: postgres
-    password: ${DB_PASSWORD:SWD392@server}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   threads:
     virtual:
@@ -34,14 +33,14 @@ spring:
           time_zone: Asia/Ho_Chi_Minh
     show-sql: true
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:103.180.138.143:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
 
   #Redis
   data:
     redis:
-      host: ${REDIS_HOST:103.180.138.143}
+      host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:12345678}
+      password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
 eureka:
   client:
@@ -71,16 +70,16 @@ app:
 # gRPC client configuration for calling identity-service
 grpc:
   server:
-    port: 9090
+    port: 9093
     enable-keep-alive: true
   client:
     identity-service:
-      address: static://localhost:9091
+      address: static://${IDENTITY_GRPC_HOST:identity-service}:9091
       negotiation-type: plaintext
     jobpost-service:
-      address: static://localhost:9094
+      address: static://${JOBPOST_GRPC_HOST:localhost}:9094
       negotiation-type: plaintext
     payment-service:
-      address: static://localhost:9095
+      address: static://${PAYMENT_GRPC_HOST:localhost}:9095
       negotiation-type: plaintext
 debug: true

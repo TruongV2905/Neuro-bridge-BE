@@ -1,5 +1,3 @@
-﻿version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg15
@@ -46,6 +44,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     networks:
       - microservice-network
 
@@ -79,12 +78,16 @@ services:
     container_name: identity-service
     env_file: .env
     depends_on:
-      - postgres
-      - discovery
-      - redis
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+      redis:
+        condition: service_started
     ports:
       - "4561:4561"
       - "9090:9090"
+      - "9091:9091"
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: docker
@@ -92,6 +95,7 @@ services:
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      PAYMENT_GRPC_HOST: payment-service
     networks:
       - microservice-network
 
@@ -102,9 +106,12 @@ services:
     container_name: workspace-service
     env_file: .env
     depends_on:
-      - postgres
-      - redis
-      - discovery
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      discovery:
+        condition: service_started
     ports:
       - "8083:8083"
     environment:
@@ -113,8 +120,73 @@ services:
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
-      REDIS_PASSWORD: 12345678
+      KAFKA_SERVERS: kafka:29092
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      IDENTITY_GRPC_HOST: identity-service
+      JOBPOST_GRPC_HOST: jobpost-service
+      PAYMENT_GRPC_HOST: payment-service
+    networks:
+      - microservice-network
+
+  jobpost-service:
+    build:
+      context: ./jobPost-service
+      dockerfile: Dockerfile
+    container_name: jobpost-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+      kafka:
+        condition: service_started
+    ports:
+      - "4562:4562"
+      - "9094:9094"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      KAFKA_SERVERS: kafka:29092
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      IDENTITY_GRPC_HOST: identity-service
+      WORKSPACE_GRPC_HOST: workspace-service
+      PAYMENT_GRPC_HOST: payment-service
+    networks:
+      - microservice-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
+      discovery:
+        condition: service_started
+    ports:
+      - "8086:8086"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      ASPNETCORE_URLS: http://+:8086
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: notification
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_SERVERS: kafka:29092
+      EUREKA_SERVER: http://discovery:8761/eureka/
     networks:
       - microservice-network
 
@@ -135,6 +207,113 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_SERVER: http://discovery:8761/eureka/
       APP_SHARED-SECRET: ${SHARED_SECRET}
+    networks:
+      - microservice-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+    ports:
+      - "4564:4564"
+      - "9095:9095"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      IDENTITY_GRPC_HOST: identity-service
+      JOBPOST_GRPC_HOST: jobpost-service
+    networks:
+      - microservice-network
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+      kafka:
+        condition: service_started
+    ports:
+      - "4565:4565"
+      - "9096:9096"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      KAFKA_SERVERS: kafka:29092
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      IDENTITY_GRPC_HOST: identity-service
+      WORKSPACE_GRPC_HOST: workspace-service
+    networks:
+      - microservice-network
+
+  rate-service:
+    build:
+      context: ./rate-service
+      dockerfile: Dockerfile
+    container_name: rate-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+    ports:
+      - "8087:8087"
+      - "9097:9097"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      IDENTITY_GRPC_HOST: identity-service
+      WORKSPACE_GRPC_HOST: workspace-service
+    networks:
+      - microservice-network
+
+  report-service:
+    build:
+      context: ./report-service
+      dockerfile: Dockerfile
+    container_name: report-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+      kafka:
+        condition: service_started
+    ports:
+      - "8088:8088"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      KAFKA_SERVERS: kafka:29092
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
     networks:
       - microservice-network
 

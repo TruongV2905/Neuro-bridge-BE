@@ -168,6 +168,27 @@
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
+
+			<!-- Ensure IDE / Maven picks up generated sources (MapStruct) as source root -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>3.3.0</version>
+				<executions>
+					<execution>
+						<id>add-generated-sources</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>${project.build.directory}/generated-sources/annotations</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<!--	Spotless		-->
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>

@@ -5,11 +5,11 @@ spring:
   application:
     name: jobPost-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/jobpost
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/jobpost
     username: postgres
-    password: ${DB_PASSWORD:SWD392@server}
+    password: ${DB_PASSWORD:postgres}
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:103.180.138.143:9092}
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
   threads:
     virtual:
       enabled: true
@@ -67,13 +67,13 @@ grpc:
     port: 9094
   client:
     identity-service:
-      address: static://localhost:9091
+      address: static://${IDENTITY_GRPC_HOST:identity-service}:9091
       negotiation-type: plaintext
     workspace-service:
-      address: static://localhost:9090
+      address: static://${WORKSPACE_GRPC_HOST:workspace-service}:9093
       negotiation-type: plaintext
     payment-service:
-      address: static://localhost:9095
+      address: static://${PAYMENT_GRPC_HOST:payment-service}:9095
       negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="

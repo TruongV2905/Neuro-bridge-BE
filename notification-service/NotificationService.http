@@ -1,0 +1,21 @@
+@NotificationService_HostAddress = http://localhost:8086
+
+### Health Check
+GET {{NotificationService_HostAddress}}/health
+Accept: application/json
+
+### Get Notifications for User
+GET {{NotificationService_HostAddress}}/api/v1/notifications/user/3fa85f64-5717-4562-b3fc-2c963f66afa6
+Accept: application/json
+
+### Get Unread Count for User
+GET {{NotificationService_HostAddress}}/api/v1/notifications/user/3fa85f64-5717-4562-b3fc-2c963f66afa6/unread-count
+Accept: application/json
+
+### Mark All as Read for User
+PUT {{NotificationService_HostAddress}}/api/v1/notifications/user/3fa85f64-5717-4562-b3fc-2c963f66afa6/read-all
+Accept: application/json
+
+### Mark Single Notification as Read
+PUT {{NotificationService_HostAddress}}/api/v1/notifications/3fa85f64-5717-4562-b3fc-2c963f66afa6/read
+Accept: application/json

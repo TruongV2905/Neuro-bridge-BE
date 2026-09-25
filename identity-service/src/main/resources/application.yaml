@@ -78,7 +78,7 @@ grpc:
     enable-keep-alive: true
   client:
     payment-service:
-      address: static://localhost:9095
+      address: static://${PAYMENT_GRPC_HOST:payment-service}:9095
       negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="

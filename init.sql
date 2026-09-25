@@ -5,7 +5,10 @@ CREATE DATABASE workspace;
 CREATE DATABASE payment;
 CREATE DATABASE chat;
 CREATE DATABASE report;
+CREATE DATABASE rate;
 \connect identity
+CREATE EXTENSION IF NOT EXISTS vector;
 
+\connect jobpost
 CREATE EXTENSION IF NOT EXISTS vector;
 
