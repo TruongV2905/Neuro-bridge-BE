@@ -2,6 +2,7 @@ package com.nqt.payment_service.constant;
 
 public enum PaymentReferenceType {
     PROPOSAL,
+    AI_PRODUCT,
     PROJECT,
     JOB_POST,
     WITHDRAW_REQUEST,

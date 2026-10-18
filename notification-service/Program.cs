@@ -129,6 +129,7 @@ try
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
     dbContext.Database.EnsureCreated();
+    await EnsurePurchaseNotificationSchemaAsync(dbContext);
 }
 catch (Exception ex)
 {
@@ -227,4 +228,21 @@ static ConfigurationOptions BuildRedisOptions(IConfiguration config)
 
     string configStr = config["Redis:Configuration"] ?? "103.180.138.143:6379,abortConnect=false,connectTimeout=5000";
     return ConfigurationOptions.Parse(configStr);
+}
+
+static async Task EnsurePurchaseNotificationSchemaAsync(NotificationDbContext dbContext)
+{
+    // This service currently uses EnsureCreated rather than EF migrations.
+    // Keep the Phase 7D change Notification-owned and safe for both a new and
+    // already-created database while preserving all prior notifications.
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS event_id text NULL;
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS purchase_id uuid NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_event_recipient
+            ON notifications (event_id, recipient_user_id)
+            WHERE event_id IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_purchase_recipient
+            ON notifications (type, purchase_id, recipient_user_id)
+            WHERE purchase_id IS NOT NULL;
+        """);
 }

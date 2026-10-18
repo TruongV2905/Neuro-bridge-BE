@@ -47,6 +47,12 @@ public class NotificationDbContext : DbContext
             entity.Property(e => e.WorkspaceId)
                 .HasColumnName("workspace_id");
 
+            entity.Property(e => e.EventId)
+                .HasColumnName("event_id");
+
+            entity.Property(e => e.PurchaseId)
+                .HasColumnName("purchase_id");
+
             entity.Property(e => e.Deeplink)
                 .HasColumnName("deeplink");
 
@@ -60,6 +66,14 @@ public class NotificationDbContext : DbContext
 
             entity.HasIndex(e => new { e.RecipientUserId, e.CreatedAt });
             entity.HasIndex(e => new { e.RecipientUserId, e.IsRead });
+            entity.HasIndex(e => new { e.EventId, e.RecipientUserId })
+                .IsUnique()
+                .HasDatabaseName("ux_notifications_event_recipient")
+                .HasFilter("event_id IS NOT NULL");
+            entity.HasIndex(e => new { e.Type, e.PurchaseId, e.RecipientUserId })
+                .IsUnique()
+                .HasDatabaseName("ux_notifications_purchase_recipient")
+                .HasFilter("purchase_id IS NOT NULL");
         });
     }
 }

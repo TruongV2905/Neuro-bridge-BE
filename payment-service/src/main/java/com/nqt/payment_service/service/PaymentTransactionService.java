@@ -483,6 +483,7 @@ public class PaymentTransactionService implements IPaymentTransaction {
             case WALLET_DEPOSIT -> "Nap tien vao vi";
             case WALLET_WITHDRAW -> "Rut tien khoi vi";
             case PROPOSAL_PAYMENT -> "Thanh toan mua proposal";
+            case AI_PRODUCT_PAYMENT -> "Thanh toan AI Place Product";
             case PROJECT_ESCROW_DEPOSIT -> "Nap tien vao escrow du an";
             case PROJECT_RELEASE -> "Release tien tu escrow cho expert";
             case PROJECT_REFUND -> "Hoan tien tu escrow ve client";

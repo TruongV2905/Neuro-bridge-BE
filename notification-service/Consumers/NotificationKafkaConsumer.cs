@@ -23,7 +23,8 @@ public class NotificationKafkaConsumer : BackgroundService
         "neural-bridge.jobpost.accepted",
         "neural-bridge.contract.sign-required",
         "neural-bridge.contract.fully-signed",
-        "neural-bridge.project.completed-payment-released"
+        "neural-bridge.project.completed-payment-released",
+        "neural-bridge.ai-product.purchased"
     ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -53,9 +54,11 @@ public class NotificationKafkaConsumer : BackgroundService
         var config = new ConsumerConfig
         {
             BootstrapServers = bootstrapServers,
-            GroupId = "notification-service",
+            GroupId = Environment.GetEnvironmentVariable("KAFKA_GROUP_ID")
+                ?? _configuration["Kafka:GroupId"]
+                ?? "notification-service",
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = true,
+            EnableAutoCommit = false,
             AllowAutoCreateTopics = true
         };
 
@@ -83,15 +86,27 @@ public class NotificationKafkaConsumer : BackgroundService
 
                 while (!stoppingToken.IsCancellationRequested)
                 {
+                    ConsumeResult<string, string>? consumeResult = null;
                     try
                     {
-                        var consumeResult = consumer.Consume(stoppingToken);
+                        consumeResult = consumer.Consume(stoppingToken);
                         if (consumeResult == null || string.IsNullOrWhiteSpace(consumeResult.Message?.Value))
                         {
+                            if (consumeResult != null)
+                            {
+                                consumer.Commit(consumeResult);
+                            }
                             continue;
                         }
 
                         string json = consumeResult.Message.Value;
+                        if (string.Equals(consumeResult.Topic, "neural-bridge.ai-product.purchased", StringComparison.Ordinal))
+                        {
+                            await ProcessAiProductPurchasedEventAsync(json, consumeResult.Topic, stoppingToken);
+                            consumer.Commit(consumeResult);
+                            continue;
+                        }
+
                         var @event = JsonSerializer.Deserialize<NotificationEvent>(json, JsonOptions);
 
                         if (@event != null)
@@ -103,6 +118,12 @@ public class NotificationKafkaConsumer : BackgroundService
                             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
                             await notificationService.SendNotificationAsync(@event);
                         }
+                        else
+                        {
+                            _logger.LogWarning("Malformed notification event ignored from topic={Topic}", consumeResult.Topic);
+                        }
+
+                        consumer.Commit(consumeResult);
                     }
                     catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                     {
@@ -117,6 +138,10 @@ public class NotificationKafkaConsumer : BackgroundService
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "[Neural Bridge] Error processing Kafka message");
+                        if (consumeResult != null)
+                        {
+                            consumer.Seek(consumeResult.TopicPartitionOffset);
+                        }
                         await Task.Delay(1000, stoppingToken);
                     }
                 }
@@ -142,6 +167,51 @@ public class NotificationKafkaConsumer : BackgroundService
         }
 
         _logger.LogInformation("[Neural Bridge] Kafka consumer stopped.");
+    }
+
+    private async Task ProcessAiProductPurchasedEventAsync(
+        string json,
+        string topic,
+        CancellationToken cancellationToken)
+    {
+        AiProductPurchasedEvent? @event;
+        try
+        {
+            @event = JsonSerializer.Deserialize<AiProductPurchasedEvent>(json, JsonOptions);
+        }
+        catch (JsonException exception)
+        {
+            _logger.LogWarning(exception, "Malformed AI Product purchase event ignored: Topic={Topic}", topic);
+            return;
+        }
+
+        var reason = @event is null ? "payload is null" : string.Empty;
+        if (@event is null || !@event.IsSupported(out reason))
+        {
+            _logger.LogWarning(
+                "Unsupported AI Product purchase event ignored: Topic={Topic} EventId={EventId} PurchaseId={PurchaseId} Reason={Reason}",
+                topic, @event?.EventId, @event?.PurchaseId, reason);
+            return;
+        }
+
+        _logger.LogInformation(
+            "AI Product purchase event received: EventId={EventId} PurchaseId={PurchaseId} ProductId={ProductId} Topic={Topic}",
+            @event.EventId, @event.PurchaseId, @event.ProductId, topic);
+
+        using var scope = _scopeFactory.CreateScope();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+        var result = await notificationService.SendAiProductPurchaseNotificationAsync(@event);
+        if (result == PurchaseNotificationDeliveryResult.Duplicate)
+        {
+            _logger.LogInformation(
+                "AI Product purchase notification duplicate skipped: EventId={EventId} PurchaseId={PurchaseId} ProductId={ProductId}",
+                @event.EventId, @event.PurchaseId, @event.ProductId);
+            return;
+        }
+
+        _logger.LogInformation(
+            "AI Product purchase notification created: EventId={EventId} PurchaseId={PurchaseId} ProductId={ProductId}",
+            @event.EventId, @event.PurchaseId, @event.ProductId);
     }
 
     private async Task EnsureTopicsExistAsync(string bootstrapServers, CancellationToken stoppingToken)

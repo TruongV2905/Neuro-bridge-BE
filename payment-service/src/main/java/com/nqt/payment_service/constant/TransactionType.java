@@ -11,6 +11,9 @@ public enum TransactionType {
     // Mua / mở khóa proposal chi tiết của expert
     PROPOSAL_PAYMENT,
 
+    // Thanh toán ngay cho AI Place Product
+    AI_PRODUCT_PAYMENT,
+
     // Client nạp / khóa tiền vào escrow cho project
     PROJECT_ESCROW_DEPOSIT,
 

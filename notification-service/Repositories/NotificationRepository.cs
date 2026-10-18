@@ -40,6 +40,14 @@ public class NotificationRepository : INotificationRepository
         return await _context.Notifications.FindAsync(notificationId);
     }
 
+    public Task<bool> ExistsForPurchaseNotificationAsync(string eventType, Guid purchaseId, Guid recipientUserId)
+    {
+        return _context.Notifications.AsNoTracking().AnyAsync(notification =>
+            notification.Type == eventType
+            && notification.PurchaseId == purchaseId
+            && notification.RecipientUserId == recipientUserId);
+    }
+
     public async Task<Notification> SaveAsync(Notification notification)
     {
         if (notification.Id == Guid.Empty)

@@ -4,6 +4,8 @@ using NotificationService.Models.Entities;
 using NotificationService.Models.Enums;
 using NotificationService.Repositories;
 using NotificationService.WebSocket;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace NotificationService.Services;
 
@@ -57,6 +59,45 @@ public class NotificationService : INotificationService
 
         _logger.LogInformation("[Neural Bridge] Saved + Cached + Sent notification {EventType} to user {RecipientUserId}",
             @event.EventType, @event.RecipientUserId);
+    }
+
+    public async Task<PurchaseNotificationDeliveryResult> SendAiProductPurchaseNotificationAsync(AiProductPurchasedEvent @event)
+    {
+        const string eventType = "AI_PRODUCT_PURCHASED";
+        if (await _notificationRepository.ExistsForPurchaseNotificationAsync(eventType, @event.PurchaseId, @event.BuyerId))
+        {
+            return PurchaseNotificationDeliveryResult.Duplicate;
+        }
+
+        var notification = new Notification
+        {
+            RecipientUserId = @event.BuyerId,
+            Type = eventType,
+            Title = "Mua AI Product thành công",
+            Message = $"Bạn đã mua \"{@event.ProductName}\" thành công. Quyền truy cập có hiệu lực đến {@event.AccessExpiresAt!.Value.UtcDateTime:yyyy-MM-dd HH:mm} UTC.",
+            ResourceId = @event.ProductId,
+            EventId = @event.EventId,
+            PurchaseId = @event.PurchaseId,
+            Deeplink = $"/ai-place/client/purchases/{@event.PurchaseId}",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Notification saved;
+        try
+        {
+            saved = await _notificationRepository.SaveAsync(notification);
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        {
+            return PurchaseNotificationDeliveryResult.Duplicate;
+        }
+
+        var response = ToResponse(saved);
+        await _cacheService.AddToNotificationListAsync(@event.BuyerId, response);
+        await _cacheService.IncrementUnreadCountAsync(@event.BuyerId);
+        await _webSocketSender.SendNotificationToUserAsync(@event.BuyerId, "/queue/notifications", response);
+        return PurchaseNotificationDeliveryResult.Created;
     }
 
     public async Task<List<NotificationResponse>> GetNotificationsAsync(Guid userId)
@@ -142,6 +183,9 @@ public class NotificationService : INotificationService
             CreatedAt = n.CreatedAt
         };
     }
+
+    private static bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.GetBaseException() is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static NotificationPayload BuildPayload(NotificationEvent @event)
     {
