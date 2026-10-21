@@ -8,6 +8,8 @@ option java_package = "com.payment.grpc";
 service PaymentService {
   rpc PayProjectEscrow (PayProjectEscrowRequest) returns (PayProjectEscrowResponse);
   rpc ReleaseEscrow (ReleaseEscrowRequest) returns (ReleaseEscrowResponse);
+  rpc SettleAiProductPurchase (AiProductSettlementRequest) returns (AiProductSettlementResponse);
+  rpc GetAiProductPurchaseSettlement (AiProductSettlementLookupRequest) returns (AiProductSettlementResponse);
 }
 
 message PayProjectEscrowRequest {
@@ -33,4 +35,55 @@ message ReleaseEscrowResponse {
   bool success = 1;
   string message = 2;
   string transactionId = 3;
+}
+
+// AI Place is VND-only. Monetary values are positive whole-VND BigDecimal
+// strings so the Java and .NET callers do not lose decimal precision.
+message AiProductSettlementRequest {
+  string product_purchase_id = 1;
+  string product_id = 2;
+  string client_code = 3;
+  string expert_code = 4;
+  string gross_amount_vnd = 5;
+  AiProductSnapshotContext snapshot_context = 6;
+}
+
+// This is AI-owned business context. Payment persists and echoes it solely so
+// AI Available can recover its immutable purchase snapshot after a remote
+// success/local persistence failure.
+message AiProductSnapshotContext {
+  string product_name = 1;
+  string seller_expert_id = 2;
+  string seller_expert_code = 3;
+  string seller_display_name = 4;
+}
+
+message AiProductSettlementLookupRequest {
+  string product_purchase_id = 1;
+}
+
+enum AiProductSettlementStatus {
+  AI_PRODUCT_SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  AI_PRODUCT_SETTLEMENT_SUCCESS = 1;
+  AI_PRODUCT_SETTLEMENT_IN_PROGRESS = 2;
+  AI_PRODUCT_SETTLEMENT_INSUFFICIENT_BALANCE = 3;
+  AI_PRODUCT_SETTLEMENT_WALLET_NOT_ACTIVE = 4;
+  // Returned only when Payment guarantees that this attempt moved no money.
+  AI_PRODUCT_SETTLEMENT_PAYMENT_FAILED = 5;
+  AI_PRODUCT_SETTLEMENT_NOT_FOUND = 6;
+  AI_PRODUCT_SETTLEMENT_IDEMPOTENCY_CONFLICT = 7;
+}
+
+message AiProductSettlementResponse {
+  AiProductSettlementStatus status = 1;
+  string product_purchase_id = 2;
+  string payment_transaction_id = 3;
+  string gross_amount_vnd = 4;
+  string platform_fee_amount_vnd = 5;
+  string expert_net_amount_vnd = 6;
+  string shortfall_amount_vnd = 7;
+  string settled_at_utc = 8;
+  AiProductSnapshotContext snapshot_context = 9;
+  string message = 10;
+  string product_id = 11;
 }

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AiAvailableService</RootNamespace>
+    <AssemblyName>AiAvailableService</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.4" />
+    <PackageReference Include="Steeltoe.Discovery.Eureka" Version="4.3.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.71.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.33.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.71.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Confluent.Kafka" Version="2.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Kept linked to the authoritative common-starter definitions. The Dockerfile uses
+         the repository root as its build context so these paths remain available there. -->
+    <Protobuf Include="..\common-starter\src\main\proto\user.proto" Link="Protos\user.proto" GrpcServices="Client" />
+    <Protobuf Include="..\common-starter\src\main\proto\payment.proto" Link="Protos\payment.proto" GrpcServices="Client" />
+  </ItemGroup>
+
+</Project>

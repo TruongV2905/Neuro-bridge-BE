@@ -32,6 +32,14 @@ public class Notification
     [Column("workspace_id")]
     public Guid? WorkspaceId { get; set; }
 
+    // Present only for Kafka event-backed notifications. Existing notification
+    // producers remain unaffected because both columns are nullable.
+    [Column("event_id")]
+    public string? EventId { get; set; }
+
+    [Column("purchase_id")]
+    public Guid? PurchaseId { get; set; }
+
     [Column("deeplink")]
     public string? Deeplink { get; set; }
 

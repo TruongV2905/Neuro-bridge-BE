@@ -92,6 +92,44 @@ public class NotificationServiceLogicTests
     }
 
     [Fact]
+    public async Task SendAiProductPurchaseNotificationAsync_WhenAlreadyPersisted_SkipsDuplicate()
+    {
+        var @event = CreateAiProductPurchasedEvent();
+        _mockRepo.Setup(r => r.ExistsForPurchaseNotificationAsync(
+                "AI_PRODUCT_PURCHASED", @event.PurchaseId, @event.BuyerId))
+            .ReturnsAsync(true);
+
+        var result = await _service.SendAiProductPurchaseNotificationAsync(@event);
+
+        Assert.Equal(PurchaseNotificationDeliveryResult.Duplicate, result);
+        _mockRepo.Verify(r => r.SaveAsync(It.IsAny<Notification>()), Times.Never);
+        _mockCache.Verify(c => c.AddToNotificationListAsync(It.IsAny<Guid>(), It.IsAny<NotificationResponse>()), Times.Never);
+        _mockWsSender.Verify(w => w.SendNotificationToUserAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<NotificationResponse>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendAiProductPurchaseNotificationAsync_PersistsPurchaseIdentityAndNotifiesBuyer()
+    {
+        var @event = CreateAiProductPurchasedEvent();
+        _mockRepo.Setup(r => r.ExistsForPurchaseNotificationAsync(
+                "AI_PRODUCT_PURCHASED", @event.PurchaseId, @event.BuyerId))
+            .ReturnsAsync(false);
+        _mockRepo.Setup(r => r.SaveAsync(It.IsAny<Notification>()))
+            .ReturnsAsync((Notification notification) => notification);
+
+        var result = await _service.SendAiProductPurchaseNotificationAsync(@event);
+
+        Assert.Equal(PurchaseNotificationDeliveryResult.Created, result);
+        _mockRepo.Verify(r => r.SaveAsync(It.Is<Notification>(notification =>
+            notification.Type == "AI_PRODUCT_PURCHASED"
+            && notification.PurchaseId == @event.PurchaseId
+            && notification.EventId == @event.EventId
+            && notification.RecipientUserId == @event.BuyerId)), Times.Once);
+        _mockCache.Verify(c => c.AddToNotificationListAsync(@event.BuyerId, It.IsAny<NotificationResponse>()), Times.Once);
+        _mockWsSender.Verify(w => w.SendNotificationToUserAsync(@event.BuyerId, "/queue/notifications", It.IsAny<NotificationResponse>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetNotificationsAsync_WhenCacheHit_ReturnsFromCache()
     {
         var userId = Guid.NewGuid();
@@ -188,5 +226,31 @@ public class NotificationServiceLogicTests
         Assert.True(notification.IsRead);
         _mockRepo.Verify(r => r.SaveAsync(notification), Times.Once);
         _mockCache.Verify(c => c.InvalidateUserAsync(userId), Times.Once);
+    }
+
+    private static AiProductPurchasedEvent CreateAiProductPurchasedEvent()
+    {
+        var purchasedAt = DateTimeOffset.UtcNow;
+        return new AiProductPurchasedEvent
+        {
+            EventId = "ai-product-purchased:test",
+            EventType = "AI_PRODUCT_PURCHASED",
+            EventVersion = 1,
+            OccurredAtUtc = purchasedAt,
+            PurchaseId = Guid.NewGuid(),
+            ProductId = Guid.NewGuid(),
+            ProductName = "Vision model",
+            PurchasedAt = purchasedAt,
+            AccessExpiresAt = purchasedAt.AddDays(30),
+            BuyerId = Guid.NewGuid(),
+            BuyerCode = "CLI001",
+            BuyerEmail = "client@example.test",
+            SellerExpertId = Guid.NewGuid(),
+            SellerExpertCode = "EXP001",
+            SellerDisplayName = "Expert",
+            PriceVnd = 100000,
+            PlatformFeeVnd = 10000,
+            ExpertNetVnd = 90000
+        };
     }
 }
