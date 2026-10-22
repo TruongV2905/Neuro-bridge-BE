@@ -239,8 +239,8 @@ services:
 
   chat-service:
     build:
-      context: ./chat-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: chat-service/Dockerfile
     container_name: chat-service
     env_file: .env
     depends_on:
@@ -248,21 +248,20 @@ services:
         condition: service_healthy
       discovery:
         condition: service_started
-      kafka:
-        condition: service_started
     ports:
       - "4565:4565"
-      - "9096:9096"
     environment:
       TZ: Asia/Ho_Chi_Minh
-      SPRING_PROFILES_ACTIVE: docker
+      ASPNETCORE_URLS: http://+:4565
       DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: chat
+      DB_USERNAME: postgres
       DB_PASSWORD: ${DB_PASSWORD}
-      KAFKA_SERVERS: kafka:29092
       EUREKA_SERVER: http://discovery:8761/eureka/
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       IDENTITY_GRPC_HOST: identity-service
       WORKSPACE_GRPC_HOST: workspace-service
+      GEMINI_API_KEY: ${GEMINI_API_KEY:AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ}
     networks:
       - microservice-network
 

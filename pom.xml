@@ -19,7 +19,8 @@
         <!-- <module>notification-service</module> -->
         <module>jobPost-service</module>
         <module>payment-service</module>
-        <module>chat-service</module>
+        <!-- chat-service has been migrated to .NET -->
+        <!-- <module>chat-service</module> -->
         <module>report-service</module>
         <module>rate-service</module>
     </modules>
