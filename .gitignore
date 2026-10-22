@@ -19,3 +19,4 @@ target/
 bin/
 obj/
 *.user
+/.playwright-mcp
