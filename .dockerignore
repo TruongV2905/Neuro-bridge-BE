@@ -1,0 +1,31 @@
+# VCS and local environment material
+.git
+.gitignore
+.env
+.env.*
+
+# IDE/editor state
+.vs
+.idea
+.vscode
+**/.vs
+**/.idea
+**/.vscode
+
+# Build/test output
+**/bin
+**/obj
+**/target
+node_modules
+**/node_modules
+coverage
+**/coverage
+logs
+**/logs
+*.log
+
+# OS/editor artifacts
+**/*.user
+**/*.suo
+**/*.swp
+.DS_Store

@@ -186,6 +186,14 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.Logger.LogInformation("Applying EF Core migrations for the AI Available database.");
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AiAvailableDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+app.Logger.LogInformation("AI Available database migrations are current.");
+
 app.UseSwagger(options => options.RouteTemplate = "v3/api-docs/{documentName}");
 app.UseSwaggerUI(options =>
 {

@@ -159,6 +159,35 @@ services:
     networks:
       - microservice-network
 
+  ai-available-service:
+    build:
+      context: .
+      dockerfile: ai-available-service/Dockerfile
+    container_name: ai-available-service
+    env_file:
+      - ai-available-service.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery:
+        condition: service_started
+      kafka:
+        condition: service_started
+      identity-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8089
+      ConnectionStrings__AiAvailableDatabase: Host=postgres;Port=5432;Database=ai_available;Username=postgres;Password=postgres
+      KAFKA_SERVERS: kafka:29092
+      EUREKA_SERVER: http://discovery:8761/eureka/
+      GrpcServices__Identity__Address: http://identity-service:9091
+      GrpcServices__Payment__Address: http://payment-service:9095
+    networks:
+      - microservice-network
+
   notification-service:
     build:
       context: ./notification-service
