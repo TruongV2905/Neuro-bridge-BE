@@ -22,3 +22,4 @@ ai-available-service.env
 bin/
 obj/
 *.user
+/.playwright-mcp
