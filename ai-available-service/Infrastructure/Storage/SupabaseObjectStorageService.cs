@@ -241,7 +241,8 @@ public sealed class SupabaseObjectStorageService(
 
     private static Uri ResolveProviderPath(Uri apiBase, string providerPath)
     {
-        if (Uri.TryCreate(providerPath, UriKind.Absolute, out var absolute))
+        if (Uri.TryCreate(providerPath, UriKind.Absolute, out var absolute) &&
+            absolute.Scheme is "https" or "http")
         {
             return absolute;
         }

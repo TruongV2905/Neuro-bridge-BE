@@ -228,6 +228,11 @@ public sealed class ProductApplicationService(
             query = query.Where(product => product.CategoryCode == filters.CategoryCode);
         }
 
+        if (filters.SellerExpertCode is not null)
+        {
+            query = query.Where(product => product.SellerExpertCode == filters.SellerExpertCode);
+        }
+
         if (filters.MinPriceVnd is not null)
         {
             query = query.Where(product => product.PriceVnd >= filters.MinPriceVnd);
@@ -241,7 +246,11 @@ public sealed class ProductApplicationService(
         query = query.OrderByDescending(product => product.LastPublishedAt).ThenByDescending(product => product.Id);
         var total = await query.LongCountAsync(cancellationToken);
         var products = await query.Skip(pagination.Skip).Take(pagination.Size).ToListAsync(cancellationToken);
-        var mapped = await Task.WhenAll(products.Select(product => MapMarketplaceListItemAsync(product, cancellationToken)));
+        var ratingAggregates = await GetRatingAggregatesAsync(products.Select(product => product.Id), cancellationToken);
+        var mapped = await Task.WhenAll(products.Select(product => MapMarketplaceListItemAsync(
+            product,
+            ratingAggregates.GetValueOrDefault(product.Id),
+            cancellationToken)));
         return Pagination.Create(mapped, pagination, total);
     }
 
@@ -261,8 +270,10 @@ public sealed class ProductApplicationService(
 
         var sellerTask = identityDirectory.GetUserAsync(product.SellerExpertId, cancellationToken);
         var previewTask = MapPreviewWithAccessAsync(product, cancellationToken);
-        await Task.WhenAll(sellerTask, previewTask);
+        var ratingAggregateTask = GetRatingAggregateAsync(product.Id, cancellationToken);
+        await Task.WhenAll(sellerTask, previewTask, ratingAggregateTask);
         var seller = await sellerTask;
+        var ratingAggregate = await ratingAggregateTask;
         return new MarketplaceProductDetailResponse(
             product.Id,
             product.Name,
@@ -273,6 +284,8 @@ public sealed class ProductApplicationService(
             product.PriceVnd,
             await previewTask,
             product.LastPublishedAt!.Value,
+            ratingAggregate?.AverageScore,
+            ratingAggregate?.RatingCount ?? 0,
             new BasicSellerSummaryResponse(seller.Id, seller.Code, seller.FullName, seller.AvatarUrl));
     }
 
@@ -386,6 +399,16 @@ public sealed class ProductApplicationService(
             }
         }
 
+        string? sellerExpertCode = null;
+        if (request.SellerExpertCode is not null)
+        {
+            sellerExpertCode = request.SellerExpertCode.Trim();
+            if (sellerExpertCode.Length == 0)
+            {
+                errors["sellerExpertCode"] = ["sellerExpertCode cannot be blank when supplied."];
+            }
+        }
+
         ValidateWholeNonnegativeVnd(request.MinPriceVnd, "minPriceVnd", errors);
         ValidateWholeNonnegativeVnd(request.MaxPriceVnd, "maxPriceVnd", errors);
         if (request.MinPriceVnd is not null && request.MaxPriceVnd is not null && request.MinPriceVnd > request.MaxPriceVnd)
@@ -394,7 +417,7 @@ public sealed class ProductApplicationService(
         }
 
         ThrowIfErrors(errors);
-        return new BrowseFilters(keyword, category, request.MinPriceVnd, request.MaxPriceVnd);
+        return new BrowseFilters(keyword, category, sellerExpertCode, request.MinPriceVnd, request.MaxPriceVnd);
     }
 
     private static string? RequireTrimmed(string? value, string field, IDictionary<string, string[]> errors)
@@ -463,9 +486,43 @@ public sealed class ProductApplicationService(
 
     private async Task<MarketplaceProductListItemResponse> MapMarketplaceListItemAsync(
         AiProduct product,
+        RatingAggregate? ratingAggregate,
         CancellationToken cancellationToken) =>
         new(product.Id, product.Name, product.CategoryCode, product.PriceVnd, product.Technologies,
-            product.AiCapabilities, await MapPreviewWithAccessAsync(product, cancellationToken), product.LastPublishedAt!.Value);
+            product.AiCapabilities, await MapPreviewWithAccessAsync(product, cancellationToken), product.LastPublishedAt!.Value,
+            ratingAggregate?.AverageScore, ratingAggregate?.RatingCount ?? 0);
+
+    private async Task<Dictionary<Guid, RatingAggregate>> GetRatingAggregatesAsync(
+        IEnumerable<Guid> productIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = productIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return [];
+        }
+
+        var aggregates = await db.ProductRatings.AsNoTracking()
+            .Where(rating => ids.Contains(rating.Purchase.ProductId) && rating.Purchase.Status == PurchaseStatus.Success)
+            .GroupBy(rating => rating.Purchase.ProductId)
+            .Select(group => new RatingAggregate(
+                group.Key,
+                group.LongCount(),
+                group.Select(rating => (decimal?)rating.Score).Average()))
+            .ToListAsync(cancellationToken);
+
+        return aggregates.ToDictionary(item => item.ProductId);
+    }
+
+    private async Task<RatingAggregate?> GetRatingAggregateAsync(Guid productId, CancellationToken cancellationToken) =>
+        await db.ProductRatings.AsNoTracking()
+            .Where(rating => rating.Purchase.ProductId == productId && rating.Purchase.Status == PurchaseStatus.Success)
+            .GroupBy(rating => rating.Purchase.ProductId)
+            .Select(group => new RatingAggregate(
+                group.Key,
+                group.LongCount(),
+                group.Select(rating => (decimal?)rating.Score).Average()))
+            .SingleOrDefaultAsync(cancellationToken);
 
     private static LifecycleActionResponse MapLifecycle(AiProduct product, bool alreadyInTargetState) =>
         new(product.Id, ToApiValue(product.Status), product.FirstPublishedAt, product.LastPublishedAt, alreadyInTargetState);
@@ -543,5 +600,12 @@ public sealed class ProductApplicationService(
         string[] AiCapabilities,
         decimal PriceVnd);
 
-    private sealed record BrowseFilters(string? Keyword, string? CategoryCode, decimal? MinPriceVnd, decimal? MaxPriceVnd);
+    private sealed record RatingAggregate(Guid ProductId, long RatingCount, decimal? AverageScore);
+
+    private sealed record BrowseFilters(
+        string? Keyword,
+        string? CategoryCode,
+        string? SellerExpertCode,
+        decimal? MinPriceVnd,
+        decimal? MaxPriceVnd);
 }

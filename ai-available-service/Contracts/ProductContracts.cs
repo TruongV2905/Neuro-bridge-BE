@@ -58,7 +58,9 @@ public sealed record MarketplaceProductListItemResponse(
     string[] Technologies,
     string[] AiCapabilities,
     PublicPreviewResponse? Preview,
-    DateTimeOffset LastPublishedAt);
+    DateTimeOffset LastPublishedAt,
+    decimal? AverageScore,
+    long RatingCount);
 
 public sealed record MarketplaceProductDetailResponse(
     Guid Id,
@@ -70,6 +72,8 @@ public sealed record MarketplaceProductDetailResponse(
     decimal PriceVnd,
     PublicPreviewResponse? Preview,
     DateTimeOffset LastPublishedAt,
+    decimal? AverageScore,
+    long RatingCount,
     BasicSellerSummaryResponse Seller);
 
 public sealed record BasicSellerSummaryResponse(
@@ -158,6 +162,7 @@ public sealed class BrowseProductsQuery
     public int Size { get; init; } = 10;
     public string? Keyword { get; init; }
     public string? CategoryCode { get; init; }
+    public string? SellerExpertCode { get; init; }
     public decimal? MinPriceVnd { get; init; }
     public decimal? MaxPriceVnd { get; init; }
 }

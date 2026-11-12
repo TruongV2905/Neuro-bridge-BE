@@ -178,6 +178,7 @@ public class NotificationService : INotificationService
             Message = n.Message,
             ResourceId = n.ResourceId,
             WorkspaceId = n.WorkspaceId,
+            PurchaseId = n.PurchaseId,
             Deeplink = n.Deeplink,
             IsRead = n.IsRead,
             CreatedAt = n.CreatedAt

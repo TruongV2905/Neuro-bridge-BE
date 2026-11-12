@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AiAvailableService.Controllers;
 
 [ApiController]
-[Authorize(Policy = "ClientOnly")]
+[Authorize(Policy = "MarketplaceRead")]
 [Route("v1/ai-place/products")]
 public sealed class MarketplaceProductsController(
     IProductApplicationService products,

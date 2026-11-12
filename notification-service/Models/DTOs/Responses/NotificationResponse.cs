@@ -22,6 +22,9 @@ public class NotificationResponse
     [JsonPropertyName("workspaceId")]
     public Guid? WorkspaceId { get; set; }
 
+    [JsonPropertyName("purchaseId")]
+    public Guid? PurchaseId { get; set; }
+
     [JsonPropertyName("deeplink")]
     public string? Deeplink { get; set; }
 

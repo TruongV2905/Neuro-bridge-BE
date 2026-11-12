@@ -290,7 +290,7 @@ services:
       EUREKA_SERVER: http://discovery:8761/eureka/
       IDENTITY_GRPC_HOST: identity-service
       WORKSPACE_GRPC_HOST: workspace-service
-      GEMINI_API_KEY: ${GEMINI_API_KEY:AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ}
+      GEMINI_API_KEY: $"GEMINI_API_KEY:AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ"
     networks:
       - microservice-network
 

@@ -134,6 +134,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ClientOnly", policy => policy.RequireAuthenticatedUser().RequireRole("CLIENT"));
     options.AddPolicy("ExpertOnly", policy => policy.RequireAuthenticatedUser().RequireRole("EXPERT"));
+    options.AddPolicy("MarketplaceRead", policy => policy.RequireAuthenticatedUser().RequireRole("CLIENT", "EXPERT"));
 });
 
 builder.Services.AddEurekaDiscoveryClient();
