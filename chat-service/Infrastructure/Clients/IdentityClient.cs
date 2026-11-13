@@ -17,9 +17,43 @@ public class IdentityClient : IIdentityClient
 
     public async Task<ParticipantDetail?> GetUserByCodeAsync(string userCode, string? bearerToken = null)
     {
+        if (string.IsNullOrWhiteSpace(userCode))
+        {
+            return null;
+        }
+
+        var headers = CreateHeaders(bearerToken);
+
+        // If userCode is a UUID (e.g. from Workspace gRPC or JWT sub), try GetUser by userId first
+        if (Guid.TryParse(userCode, out _))
+        {
+            try
+            {
+                var byIdResponse = await _userServiceClient.GetUserAsync(
+                    new UserRequest { UserId = userCode },
+                    headers: headers
+                );
+
+                if (byIdResponse != null && !string.IsNullOrWhiteSpace(byIdResponse.Id))
+                {
+                    return new ParticipantDetail
+                    {
+                        Id = byIdResponse.Id,
+                        Code = string.IsNullOrWhiteSpace(byIdResponse.Code) ? byIdResponse.Id : byIdResponse.Code,
+                        FullName = string.IsNullOrWhiteSpace(byIdResponse.FullName) ? byIdResponse.Code : byIdResponse.FullName,
+                        AvatarUrl = string.IsNullOrWhiteSpace(byIdResponse.AvatarUrl) ? null : byIdResponse.AvatarUrl,
+                        Role = byIdResponse.Role
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[IdentityClient] GetUserAsync by UUID {UserId} failed, falling back to getUserByCodeAsync", userCode);
+            }
+        }
+
         try
         {
-            var headers = CreateHeaders(bearerToken);
             var response = await _userServiceClient.getUserByCodeAsync(
                 new UserCodeRequest { Code = userCode },
                 headers: headers
@@ -28,8 +62,8 @@ public class IdentityClient : IIdentityClient
             return new ParticipantDetail
             {
                 Id = response.Id,
-                Code = response.Code,
-                FullName = response.FullName,
+                Code = string.IsNullOrWhiteSpace(response.Code) ? userCode : response.Code,
+                FullName = string.IsNullOrWhiteSpace(response.FullName) ? userCode : response.FullName,
                 AvatarUrl = string.IsNullOrWhiteSpace(response.AvatarUrl) ? null : response.AvatarUrl,
                 Role = response.Role
             };
@@ -39,6 +73,7 @@ public class IdentityClient : IIdentityClient
             _logger.LogWarning(ex, "[IdentityClient] Failed to get user by code {Code}", userCode);
             return new ParticipantDetail
             {
+                Id = userCode,
                 Code = userCode,
                 FullName = userCode
             };

@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ChatService.Domain.Enums;
 using ChatService.DTOs.Requests;
@@ -34,6 +35,14 @@ public class ChatController : ControllerBase
         var (userCode, userRole, token) = ExtractUserContext();
         var result = await _chatService.CreateChatSessionAsync(request, userCode, userRole, token);
         return StatusCode(StatusCodes.Status201Created, ApiEnvelope<ChatSessionResponse>.Success(201, result, "Create chat session successfully"));
+    }
+
+    [HttpGet("sessions/workspace/{workspaceId:guid}")]
+    public async Task<ActionResult<ApiEnvelope<ChatSessionResponse>>> GetOrCreateWorkspaceSession(Guid workspaceId)
+    {
+        var (userCode, userRole, token) = ExtractUserContext();
+        var result = await _chatService.GetOrCreateWorkspaceSessionAsync(workspaceId, userCode, userRole, token);
+        return Ok(ApiEnvelope<ChatSessionResponse>.Success(200, result, "Get workspace chat session successfully"));
     }
 
     [HttpGet("sessions/{id:guid}")]
@@ -108,7 +117,7 @@ public class ChatController : ControllerBase
     public async Task<ActionResult<ApiEnvelope<PageResponse<MessageResponse>>>> GetMessages(
         Guid id, 
         [FromQuery] int page = 0, 
-        [FromQuery] int size = 30)
+        [FromQuery] int size = 50)
     {
         var result = await _chatService.GetMessagesAsync(id, page, size);
         return Ok(ApiEnvelope<PageResponse<MessageResponse>>.Success(200, result, "Get messages successfully"));
@@ -139,20 +148,51 @@ public class ChatController : ControllerBase
 
     private (string UserCode, string? UserRole, string? Token) ExtractUserContext()
     {
-        // 1. Check Gateway custom headers
+        var token = Request.Headers["Authorization"].FirstOrDefault();
+
+        string? jwtCodeOrSub = null;
+        string? jwtRole = null;
+
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            var rawToken = token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? token["Bearer ".Length..].Trim()
+                : token.Trim();
+
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.CanReadToken(rawToken))
+                {
+                    var jwt = handler.ReadJwtToken(rawToken);
+                    jwtCodeOrSub = jwt.Claims.FirstOrDefault(c => c.Type == "code")?.Value
+                                   ?? jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value
+                                   ?? jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                    jwtRole = jwt.Claims.FirstOrDefault(c => c.Type == "role")?.Value
+                              ?? jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value
+                              ?? jwt.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[ChatController] Could not parse JWT claims");
+            }
+        }
+
         var userCode = Request.Headers["X-User-Code"].FirstOrDefault()
                        ?? Request.Headers["X-User-Id"].FirstOrDefault()
                        ?? User.FindFirstValue("code")
                        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
                        ?? User.FindFirstValue("sub")
+                       ?? jwtCodeOrSub
                        ?? "ANONYMOUS_USER";
 
         var userRole = Request.Headers["X-User-Role"].FirstOrDefault()
                        ?? User.FindFirstValue(ClaimTypes.Role)
                        ?? User.FindFirstValue("role")
+                       ?? jwtRole
                        ?? "CLIENT";
-
-        var token = Request.Headers["Authorization"].FirstOrDefault();
 
         return (userCode, userRole, token);
     }

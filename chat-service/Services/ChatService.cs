@@ -3,10 +3,9 @@ using ChatService.Domain.Entities;
 using ChatService.Domain.Enums;
 using ChatService.DTOs.Requests;
 using ChatService.DTOs.Responses;
-using ChatService.Hubs;
 using ChatService.Infrastructure.Ai;
 using ChatService.Infrastructure.Clients;
-using Microsoft.AspNetCore.SignalR;
+using ChatService.WebSocket;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatService.Services;
@@ -17,7 +16,7 @@ public class ChatServiceImpl : IChatService
     private readonly IIdentityClient _identityClient;
     private readonly IWorkspaceClient _workspaceClient;
     private readonly IGeminiAiService _geminiAiService;
-    private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IWebSocketChatSender _wsChatSender;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ChatServiceImpl> _logger;
 
@@ -26,7 +25,7 @@ public class ChatServiceImpl : IChatService
         IIdentityClient identityClient,
         IWorkspaceClient workspaceClient,
         IGeminiAiService geminiAiService,
-        IHubContext<ChatHub> hubContext,
+        IWebSocketChatSender wsChatSender,
         IServiceScopeFactory scopeFactory,
         ILogger<ChatServiceImpl> logger)
     {
@@ -34,17 +33,97 @@ public class ChatServiceImpl : IChatService
         _identityClient = identityClient;
         _workspaceClient = workspaceClient;
         _geminiAiService = geminiAiService;
-        _hubContext = hubContext;
+        _wsChatSender = wsChatSender;
         _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
-    public async Task<ChatSessionResponse> CreateChatSessionAsync(
-        CreateChatSessionRequest request, 
-        string userCode, 
-        string? userRole, 
+    private async Task<(string ResolvedCode, string? ResolvedRole)> NormalizeUserAsync(
+        string userCodeOrId,
+        string? userRole,
         string? bearerToken)
     {
+        if (string.IsNullOrWhiteSpace(userCodeOrId) || userCodeOrId == "ANONYMOUS_USER")
+        {
+            var current = await _identityClient.GetCurrentUserAsync(bearerToken);
+            if (current != null && !string.IsNullOrWhiteSpace(current.Code))
+            {
+                return (current.Code, current.Role ?? userRole);
+            }
+            return (userCodeOrId, userRole);
+        }
+
+        if (Guid.TryParse(userCodeOrId, out _))
+        {
+            var detail = await _identityClient.GetUserByCodeAsync(userCodeOrId, bearerToken);
+            if (detail != null && !string.IsNullOrWhiteSpace(detail.Code))
+            {
+                return (detail.Code, detail.Role ?? userRole);
+            }
+        }
+
+        return (userCodeOrId, userRole);
+    }
+
+    public async Task<ChatSessionResponse> GetOrCreateWorkspaceSessionAsync(
+        Guid workspaceId,
+        string userCode,
+        string? userRole,
+        string? bearerToken)
+    {
+        return await CreateChatSessionAsync(
+            new CreateChatSessionRequest
+            {
+                WorkspaceId = workspaceId,
+                Type = ChatType.PROJECT
+            },
+            userCode,
+            userRole,
+            bearerToken);
+    }
+
+    public async Task<ChatSessionResponse> CreateChatSessionAsync(
+        CreateChatSessionRequest request,
+        string userCode,
+        string? userRole,
+        string? bearerToken)
+    {
+        var (resolvedUserCode, resolvedRole) = await NormalizeUserAsync(userCode, userRole, bearerToken);
+
+        // 1. Idempotent check for PROJECT workspace session
+        if (request.WorkspaceId.HasValue)
+        {
+            var existingProjectSession = await _dbContext.ChatSessions
+                .Include(s => s.Participants)
+                .Include(s => s.Messages)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync(s => s.WorkspaceId == request.WorkspaceId.Value);
+
+            if (existingProjectSession != null)
+            {
+                await EnsureWorkspaceParticipantsAsync(existingProjectSession, request.WorkspaceId.Value, resolvedUserCode, bearerToken);
+                return await ToSessionResponseAsync(existingProjectSession, bearerToken);
+            }
+        }
+
+        // 2. Idempotent check for AI session of current user
+        if (request.Type == ChatType.AI && !string.IsNullOrWhiteSpace(resolvedUserCode))
+        {
+            var existingAiSession = await _dbContext.ChatSessions
+                .Include(s => s.Participants)
+                .Include(s => s.Messages)
+                .Where(s => s.Type == ChatType.AI &&
+                            s.Status == ChatSessionStatus.ACTIVE &&
+                            s.Participants.Any(p => p.UserCode == resolvedUserCode))
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (existingAiSession != null)
+            {
+                return await ToSessionResponseAsync(existingAiSession, bearerToken);
+            }
+        }
+
         var session = new ChatSession
         {
             Type = request.Type,
@@ -54,17 +133,15 @@ public class ChatServiceImpl : IChatService
 
         if (request.Type == ChatType.AI)
         {
-            // Session chat trực tiếp với AI Bot
-            session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = userCode });
+            session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = resolvedUserCode });
             session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = "NEURO_BOT" });
 
-            // Initial welcome message from AI
             var welcomeMsg = new ChatMessage
             {
                 ChatSessionId = session.Id,
                 SenderCode = "NEURO_BOT",
                 SenderRole = SenderRole.AI_BOT,
-                Content = "Xin chào! Tôi là NeuroBot - Trợ lý AI của nền tảng Neuro Bridge. Tôi có thể hỗ trợ bạn tìm kiếm chuyên gia, định hướng kỹ thuật hoặc tư vấn dự án hôm nay?",
+                Content = "Xin chào! Tôi là NeuroBot - Trợ lý AI của nền tảng Neuro Bridge. Tôi có thể hỗ trợ bạn phân tích yêu cầu kỹ thuật, theo dõi tiến độ Workspace hoặc tư vấn bàn giao dự án hôm nay!",
                 CreatedAt = DateTime.UtcNow
             };
             session.Messages.Add(welcomeMsg);
@@ -74,31 +151,55 @@ public class ChatServiceImpl : IChatService
             session.WorkspaceId = request.WorkspaceId.Value;
             session.Type = ChatType.PROJECT;
 
-            var workspace = await _workspaceClient.GetWorkspaceByIdAsync(request.WorkspaceId.Value.ToString());
-            if (workspace != null && !string.IsNullOrWhiteSpace(workspace.ClientId) && !string.IsNullOrWhiteSpace(workspace.ExpertId))
-            {
-                // Thêm client và expert vào session
-                var clientUser = await _identityClient.GetUserByCodeAsync(workspace.ClientId, bearerToken);
-                var expertUser = await _identityClient.GetUserByCodeAsync(workspace.ExpertId, bearerToken);
+            var addedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = clientUser?.Code ?? workspace.ClientId });
-                session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = expertUser?.Code ?? workspace.ExpertId });
-            }
-            else
+            var workspace = await _workspaceClient.GetWorkspaceByIdAsync(request.WorkspaceId.Value.ToString());
+            if (workspace != null)
             {
-                session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = userCode });
+                if (!string.IsNullOrWhiteSpace(workspace.ClientId))
+                {
+                    var clientUser = await _identityClient.GetUserByCodeAsync(workspace.ClientId, bearerToken);
+                    var clientCode = !string.IsNullOrWhiteSpace(clientUser?.Code) ? clientUser.Code : workspace.ClientId;
+                    if (addedCodes.Add(clientCode))
+                    {
+                        session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = clientCode });
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(workspace.ExpertId))
+                {
+                    var expertUser = await _identityClient.GetUserByCodeAsync(workspace.ExpertId, bearerToken);
+                    var expertCode = !string.IsNullOrWhiteSpace(expertUser?.Code) ? expertUser.Code : workspace.ExpertId;
+                    if (addedCodes.Add(expertCode))
+                    {
+                        session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = expertCode });
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(resolvedUserCode) && addedCodes.Add(resolvedUserCode))
+            {
+                session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = resolvedUserCode });
             }
         }
         else
         {
             session.Type = ChatType.DIRECT;
-            session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = userCode });
+            var addedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrWhiteSpace(resolvedUserCode) && addedCodes.Add(resolvedUserCode))
+            {
+                session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = resolvedUserCode });
+            }
 
             if (request.ParticipantCodes != null)
             {
-                foreach (var pCode in request.ParticipantCodes.Where(c => c != userCode))
+                foreach (var pCode in request.ParticipantCodes.Where(c => !string.IsNullOrWhiteSpace(c)))
                 {
-                    session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = pCode });
+                    if (addedCodes.Add(pCode))
+                    {
+                        session.Participants.Add(new ChatSessionParticipant { ChatSessionId = session.Id, UserCode = pCode });
+                    }
                 }
             }
         }
@@ -107,6 +208,57 @@ public class ChatServiceImpl : IChatService
         await _dbContext.SaveChangesAsync();
 
         return await ToSessionResponseAsync(session, bearerToken);
+    }
+
+    private async Task EnsureWorkspaceParticipantsAsync(
+        ChatSession session,
+        Guid workspaceId,
+        string currentUserCode,
+        string? bearerToken)
+    {
+        bool changed = false;
+        var existingCodes = session.Participants
+            .Select(p => p.UserCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(currentUserCode) &&
+            currentUserCode != "ANONYMOUS_USER" &&
+            !existingCodes.Contains(currentUserCode))
+        {
+            session.Participants.Add(new ChatSessionParticipant
+            {
+                ChatSessionId = session.Id,
+                UserCode = currentUserCode
+            });
+            existingCodes.Add(currentUserCode);
+            changed = true;
+        }
+
+        var workspace = await _workspaceClient.GetWorkspaceByIdAsync(workspaceId.ToString());
+        if (workspace != null)
+        {
+            foreach (var rawId in new[] { workspace.ClientId, workspace.ExpertId })
+            {
+                if (string.IsNullOrWhiteSpace(rawId)) continue;
+                var detail = await _identityClient.GetUserByCodeAsync(rawId, bearerToken);
+                var code = !string.IsNullOrWhiteSpace(detail?.Code) ? detail.Code : rawId;
+                if (!existingCodes.Contains(code))
+                {
+                    session.Participants.Add(new ChatSessionParticipant
+                    {
+                        ChatSessionId = session.Id,
+                        UserCode = code
+                    });
+                    existingCodes.Add(code);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            await _dbContext.SaveChangesAsync();
+        }
     }
 
     public async Task<ChatSessionResponse?> GetChatSessionAsync(Guid id, string? bearerToken)
@@ -122,10 +274,13 @@ public class ChatServiceImpl : IChatService
 
     public async Task<List<ChatSessionResponse>> GetMyChatSessionsAsync(ChatType type, string userCode, string? bearerToken)
     {
+        var (resolvedUserCode, _) = await NormalizeUserAsync(userCode, null, bearerToken);
+
         var sessions = await _dbContext.ChatSessions
             .Include(s => s.Participants)
             .Include(s => s.Messages)
-            .Where(s => s.Type == type && s.Participants.Any(p => p.UserCode == userCode))
+            .Where(s => s.Type == type &&
+                        s.Participants.Any(p => p.UserCode == resolvedUserCode || p.UserCode == userCode))
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
 
@@ -171,11 +326,13 @@ public class ChatServiceImpl : IChatService
     }
 
     public async Task<MessageResponse> SendMessageAsync(
-        SendMessageRequest request, 
-        string userCode, 
-        string? userRole, 
+        SendMessageRequest request,
+        string userCode,
+        string? userRole,
         string? bearerToken)
     {
+        var (resolvedUserCode, resolvedRole) = await NormalizeUserAsync(userCode, userRole, bearerToken);
+
         var session = await _dbContext.ChatSessions
             .Include(s => s.Participants)
             .FirstOrDefaultAsync(s => s.Id == request.ChatSessionId)
@@ -188,7 +345,7 @@ public class ChatServiceImpl : IChatService
 
         // Map role
         var senderRole = SenderRole.CLIENT;
-        if (!string.IsNullOrWhiteSpace(userRole) && Enum.TryParse<SenderRole>(userRole, true, out var parsedRole))
+        if (!string.IsNullOrWhiteSpace(resolvedRole) && Enum.TryParse<SenderRole>(resolvedRole, true, out var parsedRole))
         {
             senderRole = parsedRole;
         }
@@ -196,7 +353,7 @@ public class ChatServiceImpl : IChatService
         var message = new ChatMessage
         {
             ChatSessionId = session.Id,
-            SenderCode = userCode,
+            SenderCode = resolvedUserCode,
             SenderRole = senderRole,
             Content = request.Content,
             CreatedAt = DateTime.UtcNow
@@ -215,8 +372,8 @@ public class ChatServiceImpl : IChatService
             CreatedAt = message.CreatedAt
         };
 
-        // Broadcast to SignalR group
-        await _hubContext.Clients.Group(session.Id.ToString()).SendAsync("ReceiveMessage", messageResponse);
+        // Broadcast to both STOMP WebSocket and SignalR Hub
+        await _wsChatSender.BroadcastMessageToSessionAsync(session.Id, messageResponse);
 
         // NẾU LÀ PHÒNG CHAT VỚI AI => KÍCH HOẠT GEMINI AI BOT TRẢ LỜI TỰ ĐỘNG!
         if (session.Type == ChatType.AI)
@@ -225,7 +382,7 @@ public class ChatServiceImpl : IChatService
             var prompt = request.Content;
             var scopeFactory = _scopeFactory;
             var geminiService = _geminiAiService;
-            var hubContext = _hubContext;
+            var wsSender = _wsChatSender;
             var logger = _logger;
 
             _ = Task.Run(async () =>
@@ -235,7 +392,6 @@ public class ChatServiceImpl : IChatService
                     using var scope = scopeFactory.CreateScope();
                     var db = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
 
-                    // Lấy ngữ cảnh các tin nhắn gần nhất
                     var rawRecent = await db.Messages
                         .Where(m => m.ChatSessionId == sessionId)
                         .OrderByDescending(m => m.CreatedAt)
@@ -272,7 +428,7 @@ public class ChatServiceImpl : IChatService
                         CreatedAt = botMessage.CreatedAt
                     };
 
-                    await hubContext.Clients.Group(sessionId.ToString()).SendAsync("ReceiveMessage", botResponse);
+                    await wsSender.BroadcastMessageToSessionAsync(sessionId, botResponse);
                 }
                 catch (Exception ex)
                 {

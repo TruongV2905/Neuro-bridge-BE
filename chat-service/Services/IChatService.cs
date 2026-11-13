@@ -7,6 +7,7 @@ namespace ChatService.Services;
 public interface IChatService
 {
     Task<ChatSessionResponse> CreateChatSessionAsync(CreateChatSessionRequest request, string userCode, string? userRole, string? bearerToken);
+    Task<ChatSessionResponse> GetOrCreateWorkspaceSessionAsync(Guid workspaceId, string userCode, string? userRole, string? bearerToken);
     Task<ChatSessionResponse?> GetChatSessionAsync(Guid id, string? bearerToken);
     Task<List<ChatSessionResponse>> GetMyChatSessionsAsync(ChatType type, string userCode, string? bearerToken);
     Task<PageResponse<MessageResponse>> GetMessagesAsync(Guid sessionId, int page, int size);

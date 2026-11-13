@@ -5,6 +5,7 @@ using ChatService.Hubs;
 using ChatService.Infrastructure.Ai;
 using ChatService.Infrastructure.Clients;
 using ChatService.Services;
+using ChatService.WebSocket;
 using Com.Identity.Grpc;
 using Com.Workspace.Grpc;
 using Microsoft.EntityFrameworkCore;
@@ -80,15 +81,13 @@ builder.Services.AddDbContext<ChatDbContext>(options =>
 });
 
 // 5. gRPC Clients (Identity & Workspace)
-string identityGrpcAddress = builder.Configuration["GrpcServices:Identity:Address"] 
-                             ?? (Environment.GetEnvironmentVariable("IDENTITY_GRPC_HOST") != null 
-                                 ? $"http://{Environment.GetEnvironmentVariable("IDENTITY_GRPC_HOST")}:9091" 
-                                 : "http://localhost:9091");
+string identityGrpcAddress = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("IDENTITY_GRPC_HOST"))
+                             ? $"http://{Environment.GetEnvironmentVariable("IDENTITY_GRPC_HOST")}:9091"
+                             : (builder.Configuration["GrpcServices:Identity:Address"] ?? "http://localhost:9091");
 
-string workspaceGrpcAddress = builder.Configuration["GrpcServices:Workspace:Address"] 
-                              ?? (Environment.GetEnvironmentVariable("WORKSPACE_GRPC_HOST") != null 
-                                  ? $"http://{Environment.GetEnvironmentVariable("WORKSPACE_GRPC_HOST")}:9093" 
-                                  : "http://localhost:9093");
+string workspaceGrpcAddress = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WORKSPACE_GRPC_HOST"))
+                              ? $"http://{Environment.GetEnvironmentVariable("WORKSPACE_GRPC_HOST")}:9093"
+                              : (builder.Configuration["GrpcServices:Workspace:Address"] ?? "http://localhost:9093");
 
 builder.Services.AddGrpcClient<UserService.UserServiceClient>(options =>
 {
@@ -100,8 +99,10 @@ builder.Services.AddGrpcClient<WorkspaceService.WorkspaceServiceClient>(options 
     options.Address = new Uri(workspaceGrpcAddress);
 });
 
-// 6. SignalR
+// 6. Real-time SignalR & STOMP WebSocket Sender
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<WebSocketChatSender>();
+builder.Services.AddSingleton<IWebSocketChatSender>(sp => sp.GetRequiredService<WebSocketChatSender>());
 
 // 7. CORS
 builder.Services.AddCors(options =>
@@ -150,11 +151,17 @@ if (app.Environment.IsDevelopment() || true)
     });
 }
 
+// Raw WebSocket / STOMP middleware for /ws/chat
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(30)
+});
+app.UseMiddleware<StompChatWebSocketMiddleware>();
+
 app.UseRouting();
 
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
-app.MapHub<ChatHub>("/ws/chat");
 
 app.Run();
 
