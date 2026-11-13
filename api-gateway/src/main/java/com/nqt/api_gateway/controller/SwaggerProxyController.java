@@ -1,8 +1,8 @@
 package com.nqt.api_gateway.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import com.nqt.api_gateway.config.ApiPath;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -23,8 +23,8 @@ public class SwaggerProxyController {
     private WebClient.Builder webClientBuilder;
 
 
-    @Value("${app.api-prefix}")
-    private String apiPrefix;
+    @Autowired
+    private ApiPath apiPath;
 
 
     @GetMapping("/v3/api-docs/{serviceName}")
@@ -57,7 +57,7 @@ public class SwaggerProxyController {
 
             oldPaths.forEach((path, details) -> {
                 // Biến đổi: /login -> /api/identity/login
-                String newPath = apiPrefix + shortName + path;
+                String newPath = apiPath.withPrefix(shortName + path);
                 newPaths.put(newPath, details);
             });
 

@@ -1,15 +1,14 @@
 package com.nqt.api_gateway.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nqt.api_gateway.config.ApiPath;
 import com.nqt.api_gateway.config.SecurityProperties;
 import com.nqt.api_gateway.dto.response.APIResponse;
 import com.nqt.api_gateway.service.IdentityService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -36,10 +35,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     ObjectMapper objectMapper;
     AntPathMatcher antPathMatcher = new AntPathMatcher();
     SecurityProperties securityProperties;
-
-    @NonFinal
-    @Value("${app.api-prefix}")
-    String apiPrefix;
+    ApiPath apiPath;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -109,7 +105,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
         return securityProperties.getPublicEndpoints().stream()
                 .anyMatch(pattern ->
-                        antPathMatcher.match(apiPrefix + pattern, path)
+                        antPathMatcher.match(apiPath.withPrefix(pattern), path)
                 );
     }
 }

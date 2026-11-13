@@ -17,11 +17,11 @@ spring:
         predicates:
           - name: Path
             args:
-              pattern: "'/${app.api-prefix}/' + serviceId.replace('-service', '') + '/**'"
+              pattern: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/**'"
         filters:
           - name: RewritePath
             args:
-              regexp: "'/' + serviceId.replace('-service', '') + '/?(?<remaining>.*)'"
+              regexp: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/?(?<remaining>.*)'"
               replacement: "'/${remaining}'"
       forwarded:
         enabled: true
@@ -62,4 +62,4 @@ app:
       - "/notification/ws/**"
       - "/chat/ws/**"
       - "/jobpost/job-post/analyze-ai"
-  api-prefix: ${API_PREFIX:/api/}
+  api-prefix: /api

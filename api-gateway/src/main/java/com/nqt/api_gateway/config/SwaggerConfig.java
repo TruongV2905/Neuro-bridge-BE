@@ -30,6 +30,7 @@ public class SwaggerConfig {
     private final SwaggerUiConfigParameters swaggerUiConfigParameters;
     private final RouteDefinitionWriter routeDefinitionWriter;
     private final ApplicationEventPublisher publisher;
+    private final ApiPath apiPath;
 
     private final Set<String> registeredServices = new HashSet<>();
 
@@ -61,8 +62,8 @@ public class SwaggerConfig {
             RouteDefinition apiRoute = new RouteDefinition();
             apiRoute.setId("api_" + serviceName);
             apiRoute.setUri(URI.create("lb://" + serviceName));
-            apiRoute.setPredicates(List.of(new PredicateDefinition("Path=/api/" + shortName + "/**")));
-            apiRoute.setFilters(List.of(new FilterDefinition("RewritePath=/api/" + shortName + "/(?<remaining>.*), /${remaining}")));
+            apiRoute.setPredicates(List.of(new PredicateDefinition("Path=" + apiPath.withPrefix(shortName + "/**"))));
+            apiRoute.setFilters(List.of(new FilterDefinition("RewritePath=" + apiPath.withPrefix(shortName + "/(?<remaining>.*)") + ", /${remaining}")));
 
             // 4. Lưu route
             routeDefinitionWriter.save(Mono.just(swaggerRoute)).subscribe();
