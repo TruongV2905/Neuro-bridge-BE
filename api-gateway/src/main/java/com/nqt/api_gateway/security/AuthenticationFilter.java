@@ -67,28 +67,13 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         }
 
         String token = authHeader.substring(7);
+        if (token.isBlank()) {
+            log.warn("Blank token for path: {}", path);
+            return unauthenticatedResponse(exchange.getResponse());
+        }
 
-        return identityService.introspectToken(token)
-                .flatMap(res -> {
-                    if (res != null && res.getResult() != null && res.getResult().isValid()) {
-
-                        ServerHttpRequest newRequest = exchange.getRequest().mutate()
-                                .headers(headers -> {
-                                    headers.remove(HttpHeaders.AUTHORIZATION);
-                                    headers.setBearerAuth(token);
-                                })
-                                .build();
-
-                        return chain.filter(exchange.mutate().request(newRequest).build());
-                    }
-
-                    log.warn("Invalid token for path: {}", path);
-                    return unauthenticatedResponse(exchange.getResponse());
-                })
-                .onErrorResume(ex -> {
-                    log.error("Introspection error: {}", ex.getMessage());
-                    return unauthenticatedResponse(exchange.getResponse());
-                });
+        // Forward request trực tiếp kèm Bearer token cho service đích tự verify
+        return chain.filter(exchange);
     }
 
     @Override

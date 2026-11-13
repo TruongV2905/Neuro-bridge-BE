@@ -57,25 +57,30 @@ public class JobPostService implements IJobPost {
         request.setDescription(normalized.getDescription());
 
         // 3. Gọi sang identity-service để suggest skill bằng RAG
-        SkillSuggestionResponse suggestion = identityServiceClient.suggestSkills(request.getTitle(),request.getDescription());
-        Set<Long> requiredSkillIds =
-                new HashSet<Long>(suggestion.getRequiredSkillIdsList());
+        try {
+            SkillSuggestionResponse suggestion = identityServiceClient.suggestSkills(request.getTitle(), request.getDescription());
+            if (suggestion != null) {
+                Set<Long> requiredSkillIds = new HashSet<>(suggestion.getRequiredSkillIdsList());
+                Set<Long> preferredSkillIds = new HashSet<>(suggestion.getPreferredSkillIdsList());
+                request.setRequiredSkillIds(requiredSkillIds);
+                request.setPreferredSkillIds(preferredSkillIds);
+            }
+        } catch (Exception e) {
+            log.warn("Could not suggest skills from identity-service via gRPC: {}", e.getMessage());
+        }
 
-        Set<Long> preferredSkillIds =
-                new HashSet<Long>(suggestion.getPreferredSkillIdsList());
-        // 4. Set skill AI gợi ý vào request
-        request.setRequiredSkillIds(requiredSkillIds);
-        request.setPreferredSkillIds(preferredSkillIds);
         // 5. Trả request đã được AI xử lý
         return request;
     }
 
     private void validateBudget(JobPostRequest request) {
-        if (request.getBudgetFrom().compareTo(request.getBudgetTo()) > 0) {
-            throw new GlobalException("BUDGET_FROM_MUST_BE_LESS_THAN_BUDGET_TO");
+        if (request.getBudgetFrom() != null && request.getBudgetTo() != null) {
+            if (request.getBudgetFrom().compareTo(request.getBudgetTo()) > 0) {
+                throw new GlobalException("BUDGET_FROM_MUST_BE_LESS_THAN_BUDGET_TO");
+            }
         }
 
-        if (request.getEstimatedDays() <= 0) {
+        if (request.getEstimatedDays() != null && request.getEstimatedDays() <= 0) {
             throw new GlobalException("ESTIMATED_DAYS_MUST_BE_POSITIVE");
         }
     }

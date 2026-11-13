@@ -7,7 +7,7 @@ spring:
   application:
     name: workspace-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres}:5432/workspace
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/workspace
     username: postgres
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -38,7 +38,7 @@ spring:
   #Redis
   data:
     redis:
-      host: ${REDIS_HOST:redis}
+      host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
@@ -74,7 +74,7 @@ grpc:
     enable-keep-alive: true
   client:
     identity-service:
-      address: static://${IDENTITY_GRPC_HOST:identity-service}:9091
+      address: static://${IDENTITY_GRPC_HOST:localhost}:9091
       negotiation-type: plaintext
     jobpost-service:
       address: static://${JOBPOST_GRPC_HOST:localhost}:9094

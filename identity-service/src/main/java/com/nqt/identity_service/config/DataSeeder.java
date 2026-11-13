@@ -48,7 +48,11 @@ public class DataSeeder implements CommandLineRunner {
                         .build();
         User entity = userRepository.save(admin);
         log.info("Seeded admin user: admin@gmail.com / Admin@123");
-        paymentServiceClient.createWallet(entity.getCode());
-        log.info("Created wallet for admin user: {}", entity.getCode());
+        try {
+            paymentServiceClient.createWallet(entity.getCode());
+            log.info("Created wallet for admin user: {}", entity.getCode());
+        } catch (Exception e) {
+            log.warn("Could not create wallet via gRPC (payment-service might not be running): {}", e.getMessage());
+        }
     }
 }

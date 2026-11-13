@@ -61,4 +61,5 @@ app:
       - "/identity/skill/user"
       - "/notification/ws/**"
       - "/chat/ws/**"
+      - "/jobpost/job-post/analyze-ai"
   api-prefix: ${API_PREFIX:/api/}

@@ -6,9 +6,9 @@ spring:
   application:
     name: identity-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:103.180.138.143}:5432/identity
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/identity
     username: postgres
-    password: ${DB_PASSWORD:SWD392@server}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   threads:
     virtual:
@@ -33,13 +33,13 @@ spring:
     show-sql: true
   ai:
     openai:
-      api-key: AQ.Ab8RN6JNPGDR1T38xQtsbIg8GkYu-cr5aPnQTNtOTYf4QgktzQ
+      api-key: ${GEMINI_KEY:}
 
       chat:
         base-url: https://generativelanguage.googleapis.com/v1beta/openai
         completions-path: /chat/completions
         options:
-          model: gemini-2.5-flash
+          model: gemini-3.5-flash-lite
 
       embedding:
         base-url: https://generativelanguage.googleapis.com/v1beta/openai
@@ -58,9 +58,9 @@ spring:
   #Redis
   data:
     redis:
-      host: ${REDIS_HOST:103.180.138.143}
+      host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:12345678}
+      password: ${REDIS_PASSWORD:}
 #      database: ${REDIS_DATABASE:0}
 eureka:
   client:
@@ -78,7 +78,7 @@ grpc:
     enable-keep-alive: true
   client:
     payment-service:
-      address: static://${PAYMENT_GRPC_HOST:payment-service}:9095
+      address: static://${PAYMENT_GRPC_HOST:localhost}:9095
       negotiation-type: plaintext
 jwt:
   signerKey: "AQmfYttUwrlZyk8pIHcEBP3WoQEcmlq5z2brmlu/+4ImpbwLBywUMtSUgm13H+iSUsWe58/Q7vZH3nmbP8Jg4g=="

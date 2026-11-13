@@ -6,7 +6,7 @@ spring:
   application:
     name: rate-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres}:5432/rate
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/rate
     username: postgres
     password: ${DB_PASSWORD:postgres}
   threads:
@@ -38,10 +38,10 @@ grpc:
     port: 9097
   client:
     identity-service:
-      address: static://${IDENTITY_GRPC_HOST:identity-service}:9091
+      address: static://${IDENTITY_GRPC_HOST:localhost}:9091
       negotiation-type: plaintext
     workspace-service:
-      address: static://${WORKSPACE_GRPC_HOST:workspace-service}:9093
+      address: static://${WORKSPACE_GRPC_HOST:localhost}:9093
       negotiation-type: plaintext
 
 jwt:

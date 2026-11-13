@@ -6,6 +6,7 @@ CREATE DATABASE payment;
 CREATE DATABASE chat;
 CREATE DATABASE report;
 CREATE DATABASE rate;
+CREATE DATABASE ai_available;
 \connect identity
 CREATE EXTENSION IF NOT EXISTS vector;
 
