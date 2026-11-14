@@ -19,7 +19,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequestMapping("/payment-transactions")
+@RequestMapping({"/api/payment-transactions", "/payment-transactions"})
 public class PaymentTransactionController {
 
     PaymentTransactionService paymentTransactionService;

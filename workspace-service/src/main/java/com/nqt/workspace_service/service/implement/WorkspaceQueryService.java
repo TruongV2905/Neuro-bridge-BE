@@ -98,6 +98,7 @@ public class WorkspaceQueryService implements IWorkspaceQueryService {
 
         return WorkspaceResponse.builder()
                 .workspaceId(workspace.getWorkspaceId())
+                .projectId(workspace.getProjectDetail() != null ? workspace.getProjectDetail().getProjectId() : null)
                 .jobId(workspace.getJobId())
                 .escrowId(workspace.getEscrowId())
                 .status(workspace.getStatus())

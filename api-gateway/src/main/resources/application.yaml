@@ -11,18 +11,26 @@ spring:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
 
+      routes:
+        - id: notification-ws
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notification/ws/**, /api/notification/hubs/**
+          filters:
+            - RewritePath=/api/notification/?(?<remaining>.*), /${remaining}
       discovery:
-        enabled: true
-        lower-case-service-id: true
-        predicates:
-          - name: Path
-            args:
-              pattern: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/**'"
-        filters:
-          - name: RewritePath
-            args:
-              regexp: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/?(?<remaining>.*)'"
-              replacement: "'/${remaining}'"
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          predicates:
+            - name: Path
+              args:
+                pattern: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/**'"
+          filters:
+            - name: RewritePath
+              args:
+                regexp: "'${app.api-prefix}/' + serviceId.replace('-service', '') + '/?(?<remaining>.*)'"
+                replacement: "'/${remaining}'"
       forwarded:
         enabled: true
 
@@ -60,6 +68,9 @@ app:
       - "/notification/api/notifications/health"
       - "/identity/skill/user"
       - "/notification/ws/**"
+      - "/notification/hubs/**"
+      - "/notification/api/v1/notifications/test"
+      - "/notification/v1/notifications/test"
       - "/chat/ws/**"
       - "/jobpost/job-post/analyze-ai"
   api-prefix: /api

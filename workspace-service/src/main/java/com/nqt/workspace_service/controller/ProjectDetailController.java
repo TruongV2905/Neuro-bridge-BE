@@ -64,8 +64,8 @@ public class ProjectDetailController {
         ));
     }
 
-    @PostMapping("/{projectId}/complete")
-    @Operation(summary = "Kết thúc dự án: cập nhật tiến độ 100%, giải ngân tiền cho Expert và gửi thông báo")
+    @PostMapping({"/{projectId}/complete", "/workspace/{projectId}/complete"})
+    @Operation(summary = "Kết thúc dự án: cập nhật tiến độ 100%, giải ngân tiền cho Expert và gửi thông báo (hỗ trợ cả projectId hoặc workspaceId)")
     public ResponseEntity<APIResponse<ProjectDetailRespond>> completeProject(@PathVariable UUID projectId) {
         return ResponseEntity.ok(APIResponse.response(
                 HttpStatus.OK.value(),

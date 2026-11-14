@@ -71,9 +71,11 @@ public class WorkspaceSecurityExpression {
         UUID currentUserId = getCurrentUserId();
         if (currentUserId == null) return false;
 
-        ProjectDetail project = projectRepository.findById(projectId).orElse(null);
+        ProjectDetail project = projectRepository.findById(projectId)
+                .or(() -> projectRepository.findProjectDetailByWorkspaceId(projectId))
+                .orElse(null);
         if (project == null) {
-            log.warn("Project not found with ID: {}", projectId);
+            log.warn("Project not found with ID or Workspace ID: {}", projectId);
             return false;
         }
 

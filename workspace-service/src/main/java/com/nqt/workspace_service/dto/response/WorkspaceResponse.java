@@ -9,6 +9,7 @@ import java.util.UUID;
 @Builder
 public class WorkspaceResponse {
     private UUID workspaceId;
+    private UUID projectId;
     private UUID jobId;
     private UUID escrowId;
     private WorkspaceStatus status;

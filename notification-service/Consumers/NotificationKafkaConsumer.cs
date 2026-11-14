@@ -29,7 +29,8 @@ public class NotificationKafkaConsumer : BackgroundService
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new FlexibleDateTimeConverter() }
     };
 
     public NotificationKafkaConsumer(
@@ -137,12 +138,12 @@ public class NotificationKafkaConsumer : BackgroundService
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "[Neural Bridge] Error processing Kafka message");
+                        _logger.LogError(ex, "[Neural Bridge] Error processing Kafka message from topic={Topic}", consumeResult?.Topic);
                         if (consumeResult != null)
                         {
-                            consumer.Seek(consumeResult.TopicPartitionOffset);
+                            consumer.Commit(consumeResult);
                         }
-                        await Task.Delay(1000, stoppingToken);
+                        await Task.Delay(500, stoppingToken);
                     }
                 }
 

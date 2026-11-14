@@ -123,7 +123,8 @@ public class ProjectDetailService implements IProjectDetailService {
         validateUserIdentity();
 
         ProjectDetail project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new GlobalException("Project not found"));
+                .or(() -> projectRepository.findProjectDetailByWorkspaceId(projectId))
+                .orElseThrow(() -> new GlobalException("Project not found with ID or Workspace ID: " + projectId));
 
         var workspace = project.getWorkspace();
 

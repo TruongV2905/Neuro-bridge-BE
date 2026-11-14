@@ -33,7 +33,7 @@ spring:
     show-sql: true
   ai:
     openai:
-      api-key: ${GEMINI_KEY:}
+      api-key: ${GEMINI_KEY:AQ.Ab8RN6IEy1FBAI47RSfndrMEFEc3qZPd5x6-cJbMxSuOtiyaEA}
 
       chat:
         base-url: https://generativelanguage.googleapis.com/v1beta/openai

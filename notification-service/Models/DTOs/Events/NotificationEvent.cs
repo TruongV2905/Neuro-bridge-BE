@@ -49,5 +49,6 @@ public class NotificationEvent
 
     // Metadata
     [JsonPropertyName("occurredAt")]
+    [JsonConverter(typeof(FlexibleDateTimeConverter))]
     public DateTime? OccurredAt { get; set; }
 }

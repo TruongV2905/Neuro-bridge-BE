@@ -17,10 +17,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import com.nqt.payment_service.dto.request.UserWalletRequest;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/wallet")
+@RequestMapping({"/api/wallet", "/wallet"})
 @RequiredArgsConstructor
 public class UserWalletController {
 
@@ -82,12 +84,22 @@ public class UserWalletController {
 
     @PostMapping("/deposit/vnpay")
     public ResponseEntity<APIResponse<String>> depositByVnPay(
-            @RequestParam BigDecimal depositAmount,
+            @RequestParam(required = false) BigDecimal depositAmount,
             @RequestParam(required = false) String description,
+            @RequestBody(required = false) UserWalletRequest body,
             HttpServletRequest request
     ) {
-        String clientIp = request.getHeader("X-forwarded-For");
-        if(clientIp == null || clientIp.isEmpty()) {
+        BigDecimal amount = depositAmount != null ? depositAmount : (body != null ? body.getDepositAmount() : null);
+        String desc = description != null ? description : (body != null ? body.getDescription() : null);
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().body(
+                    APIResponse.response(400, "depositAmount is required and must be greater than 0", null)
+            );
+        }
+
+        String clientIp = request.getHeader("X-Forwarded-For");
+        if (clientIp == null || clientIp.isEmpty()) {
             clientIp = request.getRemoteAddr();
         }
         return ResponseEntity.ok(
@@ -95,8 +107,8 @@ public class UserWalletController {
                         200,
                         "Create VNPay payment URL successfully",
                         userWalletService.depositByVnPay(
-                                depositAmount,
-                                description,
+                                amount,
+                                desc,
                                 clientIp
                         )
                 )
@@ -105,10 +117,27 @@ public class UserWalletController {
 
     @PostMapping("/deposit/success")
     public ResponseEntity<APIResponse<Void>> depositSuccessfully(
-            @RequestParam BigDecimal depositAmount,
-            @RequestParam UUID transactionId
+            @RequestParam(required = false) BigDecimal depositAmount,
+            @RequestParam(required = false) UUID transactionId,
+            @RequestBody(required = false) Map<String, Object> body
     ) {
-        userWalletService.depositSuccessfully(depositAmount, transactionId);
+        UUID txId = transactionId;
+        BigDecimal amount = depositAmount;
+
+        if (txId == null && body != null && body.get("transactionId") != null) {
+            txId = UUID.fromString(body.get("transactionId").toString());
+        }
+        if (amount == null && body != null && body.get("depositAmount") != null) {
+            amount = new BigDecimal(body.get("depositAmount").toString());
+        }
+
+        if (txId == null) {
+            return ResponseEntity.badRequest().body(
+                    APIResponse.response(400, "transactionId is required", null)
+            );
+        }
+
+        userWalletService.depositSuccessfully(amount, txId);
 
         return ResponseEntity.ok(
                 APIResponse.response(

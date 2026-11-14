@@ -81,12 +81,24 @@ public class UserWalletService implements IUserWallet {
         return userWalletMapper.toResponse(wallet);
     }
 
+    public UserWallet ensureWalletExists(String userCode) {
+        return userWalletRepository.findByUserCode(userCode).orElseGet(() -> {
+            UserWallet wallet = UserWallet.builder()
+                    .userCode(userCode)
+                    .status(WalletStatus.ACTIVE)
+                    .walletBalance(BigDecimal.ZERO)
+                    .totalEarned(BigDecimal.ZERO)
+                    .totalWithdrawn(BigDecimal.ZERO)
+                    .build();
+            return userWalletRepository.save(wallet);
+        });
+    }
+
     @Override
     public UserWalletResponse getUserWalletOfMine() {
         UserResponse user = identityServiceClient.getCurrentUser();
         String userCode = user.getCode();
-        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
-                .orElseThrow(() -> new RuntimeException("Wallet not found for userCode: " + userCode));
+        UserWallet wallet = ensureWalletExists(userCode);
 
         return userWalletMapper.toResponse(wallet);
     }
@@ -97,12 +109,11 @@ public class UserWalletService implements IUserWallet {
     @Override
     public void deposit(String userCode, BigDecimal depositAmount) {
 
-        if (depositAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (depositAmount == null || depositAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new GlobalException("Deposit amount must be greater than 0");
         }
 
-        UserWallet wallet = userWalletRepository.findByUserCode(userCode)
-                .orElseThrow(() -> new GlobalException("Wallet not found for userCode: " + userCode));
+        UserWallet wallet = ensureWalletExists(userCode);
 
         if (wallet.getStatus() != WalletStatus.ACTIVE) {
             throw new GlobalException("Wallet is not active");
@@ -144,20 +155,23 @@ public class UserWalletService implements IUserWallet {
 
     @Transactional
     @Override
-    public String depositByVnPay(BigDecimal depositAmount,String description, String clientIp) {
+    public String depositByVnPay(BigDecimal depositAmount, String description, String clientIp) {
         UserResponse user = identityServiceClient.getCurrentUser();
         String userCode = user.getCode();
+        ensureWalletExists(userCode);
+
         PaymentTransactionRequest request = PaymentTransactionRequest.builder()
                 .amount(depositAmount)
                 .type(TransactionType.WALLET_DEPOSIT)
                 .toUserCode(userCode)
+                .description(description)
                 .referenceType(PaymentReferenceType.DEPOSIT_REQUEST)
                 .build();
         PaymentTransactionResponse paymentTransactionResponse = paymentTransactionService.create(request);
 
         String paymentTransactionId = paymentTransactionResponse.getId().toString();
         try{
-            return  vNPayService.createVnPayUrl(paymentTransactionId,depositAmount,clientIp);
+            return  vNPayService.createVnPayUrl(paymentTransactionId, depositAmount, clientIp);
         }catch (Exception e){
             throw new GlobalException("Failed to create VNPay URL: " + e.getMessage());
         }
@@ -168,6 +182,7 @@ public class UserWalletService implements IUserWallet {
     public void depositSuccessfully(BigDecimal depositAmount, UUID transactionId) {
         UserResponse user = identityServiceClient.getCurrentUser();
         String userCode = user.getCode();
+        ensureWalletExists(userCode);
         PaymentTransactionResponse transaction = paymentTransactionService.getById(transactionId);
 
         if (transaction.getStatus() == TransactionStatus.SUCCESS) {
@@ -178,7 +193,9 @@ public class UserWalletService implements IUserWallet {
             throw new GlobalException("Cannot complete deposit transaction with status: " + transaction.getStatus());
         }
 
-        if (transaction.getAmount() == null || transaction.getAmount().compareTo(depositAmount) != 0) {
+        BigDecimal effectiveAmount = depositAmount != null ? depositAmount : transaction.getAmount();
+
+        if (transaction.getAmount() == null || transaction.getAmount().compareTo(effectiveAmount) != 0) {
             throw new GlobalException("Deposit amount does not match the payment transaction");
         }
 
@@ -198,7 +215,7 @@ public class UserWalletService implements IUserWallet {
                 null,
                 PaymentReferenceType.DEPOSIT_REQUEST,
                 null,
-                depositAmount,
+                effectiveAmount,
                 transactionId
         );
     }
